@@ -17,11 +17,11 @@ def _():
     from pathlib import Path
 
     import marimo as mo
-    import matplotlib.pyplot as plt
     import numpy as np
     import pandas as pd
     import plotly.graph_objects as go
     import pypsa
+    from plotly.subplots import make_subplots
     from scipy.optimize import linprog
 
     ASSETS = Path(__file__).parent / "assets"  # data saved by scripts/build_data.py
@@ -35,6 +35,19 @@ def _():
     def terms(text):
         """A small line that defines the jargon and symbols used on a slide."""
         return mo.md(f"<small>**Terms** · {text}</small>")
+
+    def show_chart(fig, height, **layout):
+        """Show a Plotly chart styled like the maps, at a fixed height so the slide fits."""
+        fig.update_layout(
+            height=height, margin=dict(l=10, r=10, t=10, b=10),
+            plot_bgcolor="#F7F5EF", paper_bgcolor="#F7F5EF", font=dict(size=13),
+            legend=dict(bgcolor="#F7F5EF", traceorder="normal"),
+        )
+        fig.update_layout(**layout)
+        axis = dict(showline=True, linecolor="#6A6A6A", ticks="outside", showgrid=False, zeroline=False)
+        fig.update_xaxes(**axis)
+        fig.update_yaxes(**axis)
+        return mo.ui.plotly(fig, config={"displaylogo": False})
 
     demand_slider = mo.ui.slider(
         100, 1000, step=10, value=820, label="Demand (MW)", show_value=True
@@ -72,11 +85,12 @@ def _():
         json,
         limit_slider,
         linprog,
+        make_subplots,
         mo,
         np,
         pd,
-        plt,
         pypsa,
+        show_chart,
         contract_dropdown,
         cvar_slider,
         requirement_slider,
@@ -303,7 +317,7 @@ def _(terms, WEST, base_map, mo, plant_trace, plants, show_map):
     Two RTOs: **CAISO** and, since April 2026, **SPP** (most of WACM, part of WAUW).
 
     CAISO also runs markets for other BAs: the **Western Energy Imbalance Market**
-    (5-minute dispatch, the same LP) and, since May 2026, the **Extended Day-Ahead
+    (5-minute dispatch, the same kind of LP) and, since May 2026, the **Extended Day-Ahead
     Market** (EDAM), starting with PacifiCorp.
 
     <small>Largest 12 BAs by capacity in color. Source: EIA-860 (2025) via PUDL.</small>
@@ -421,8 +435,8 @@ def _(mo):
     | **Gas CC** | **35** | **170 of 200** (marginal) | 35 | 0 |
     | Peaker | 80 | 0 | — | — |
 
-    *Demand 820 MW.* Paid the clearing price whatever it bids, a small generator’s best strategy is to
-    **bid its true marginal cost**. In the LP: bids are the $c_i$, awards the optimal $p_i^{\star}$, payment the dual $\lambda$.
+    *Demand 820 MW.* Since it is paid the clearing price whatever it bids, a small generator’s best strategy is to
+    **bid its true marginal cost**.
 
     <small>**Terms** · **marginal cost**: cost of one more MWh · **Gas CC**: efficient combined-cycle plant · **peaker**: runs only at peaks · **small**: can’t move the price</small>
     """
@@ -457,7 +471,7 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(demand_slider, mo, pd, plt):
+def _(demand_slider, go, mo, pd, show_chart):
     merit = pd.DataFrame(
         {
             "unit": ["Wind", "Nuclear", "Coal", "Gas CC", "Peaker"],
@@ -472,7 +486,7 @@ def _(demand_slider, mo, pd, plt):
         marginal = merit[merit["end"] >= demand].iloc[0]
         price = marginal["cost"]
 
-        fig, ax = plt.subplots(figsize=(9, 4.2))
+        fig = go.Figure()
         for _, row in merit.iterrows():
             if row["unit"] == marginal["unit"]:
                 color = "#E07A1F"
@@ -480,25 +494,24 @@ def _(demand_slider, mo, pd, plt):
                 color = "#2F4A7A"
             else:
                 color = "#C9C2B0"
-            ax.bar(row["start"], row["cost"], width=row["capacity"], align="edge",
-                   color=color, edgecolor="white")
-            ax.text(row["start"] + row["capacity"] / 2, row["cost"] + 2, row["unit"],
-                    ha="center", fontsize=10)
-        ax.axvline(demand, color="#14213D", lw=2)
-        ax.axhline(price, color="#A84F0A", ls="--", lw=1.5)
-        ax.text(10, price + 2, f"Price = ${price}/MWh", color="#A84F0A", fontweight="bold")
-        ax.set_xlabel("Cumulative capacity (MW)")
-        ax.set_ylabel("Offer price ($/MWh)")
-        ax.set_xlim(0, 1000)
-        ax.set_ylim(0, 95)
-        ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+            fig.add_trace(go.Bar(
+                x=[row["start"] + row["capacity"] / 2], y=[row["cost"]], width=[row["capacity"]],
+                marker=dict(color=color, line=dict(color="white", width=1.5)), showlegend=False,
+                text=[row["unit"]], textposition="outside", cliponaxis=False,
+                hovertemplate=f"{row['unit']}: {row['capacity']} MW at ${row['cost']}/MWh<extra></extra>",
+            ))
+        fig.add_vline(demand, line=dict(color="#14213D", width=2))
+        fig.add_hline(price, line=dict(color="#A84F0A", dash="dash", width=1.5))
+        fig.add_annotation(x=10, y=price, text=f"<b>Price = ${price}/MWh</b>", showarrow=False,
+                           xanchor="left", yanchor="bottom", font=dict(color="#A84F0A"))
+        fig.update_xaxes(title="Cumulative capacity (MW)", range=[0, 1000])
+        fig.update_yaxes(title="Offer price ($/MWh)", range=[0, 95])
 
         return mo.vstack(
             [
                 mo.md("## The merit order: stack offers cheapest first"),
                 demand_slider,
-                fig,
+                show_chart(fig, 400, bargap=0),
                 mo.md(
                     f"Demand **{demand} MW** is met by everything left of the line. "
                     f"The last unit needed, **{marginal['unit']}**, sets the price for everyone: **\\${price}/MWh**."
@@ -647,7 +660,7 @@ def _(demand_slider, mo, single_bus):
         )
         return mo.vstack(
             [
-                mo.md("## The same thing as an LP in PyPSA"),
+                mo.md("## The LP’s dual reproduces the merit-order price"),
                 demand_slider,
                 mo.hstack(
                     [
@@ -689,7 +702,7 @@ def _(mo):
     - **Duals:** each node’s conservation row has a dual, a *node price* (potential). Shipping from $i$ to $j$
       is worth the price difference, and a full arc earns the gap.
 
-    **The grid is a network** (buses = nodes, lines = arcs), and the node prices will be the LMPs. **The catch:** you
+    **The grid is a network** (buses = nodes, lines = arcs), and the node prices will be *locational marginal prices* (LMPs). **The catch:** you
     can’t pick the path. Physics splits the flow, which adds constraints.
 
     <small>**Terms** · $f_{ij}$: flow on arc $i \to j$ · $b_n > 0$: supply, $< 0$: demand · **totally unimodular**: every square submatrix has determinant 0, ±1 · **arc**: a directed edge</small>
@@ -776,7 +789,7 @@ def _(QUIET, mo, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(terms, limit_slider, mo, plt, two_bus):
+def _(terms, go, limit_slider, mo, show_chart, two_bus):
     def two_bus_slide(line_limit):
         n = two_bus(line_limit)
         output = n.generators_t.p.iloc[0]
@@ -786,24 +799,25 @@ def _(terms, limit_slider, mo, plt, two_bus):
         rent = (lmp["bus 2"] - lmp["bus 1"]) * flow
         binding = flow >= line_limit - 1e-6
 
-        fig, ax = plt.subplots(figsize=(9, 2.6))
+        fig = go.Figure()
         color = "#E07A1F" if binding else "#8A9BB8"
-        ax.annotate("", xy=(3, 0), xytext=(0, 0),
-                    arrowprops=dict(arrowstyle="-|>,head_width=0.6,head_length=1.0",
-                                    color=color, lw=5, shrinkA=18, shrinkB=18))
-        ax.text(1.5, 0.22, f"{flow:.0f} MW flowing · limit {line_limit:.0f} MW"
-                + ("  (at limit)" if binding else ""),
-                ha="center", fontsize=11, fontweight="bold" if binding else "normal", color="#14213D")
+        fig.add_annotation(x=3, y=0, ax=0, ay=0, xref="x", yref="y", axref="x", ayref="y",
+                           text="", showarrow=True, arrowhead=2, arrowsize=0.8, arrowwidth=5,
+                           arrowcolor=color, standoff=22, startstandoff=22)
+        flow_label = f"{flow:.0f} MW flowing · limit {line_limit:.0f} MW" + ("  (at limit)" if binding else "")
+        fig.add_annotation(x=1.5, y=0.22, text=f"<b>{flow_label}</b>" if binding else flow_label,
+                           showarrow=False, font=dict(size=15, color="#14213D"))
         for x, label in [
-            (0, f"Bus 1\nGen A ($20): {output['Gen A']:.0f} MW\nLMP ${lmp['bus 1']:.0f}"),
-            (3, f"Bus 2\nGen B ($50): {output['Gen B']:.0f} MW · Load 150 MW\nLMP ${lmp['bus 2']:.0f}"),
+            (0, f"Bus 1<br>Gen A ($20): {output['Gen A']:.0f} MW<br>LMP ${lmp['bus 1']:.0f}"),
+            (3, f"Bus 2<br>Gen B ($50): {output['Gen B']:.0f} MW · Load 150 MW<br>LMP ${lmp['bus 2']:.0f}"),
         ]:
-            ax.scatter([x], [0], s=700, color="#14213D", zorder=3)
-            ax.text(x, -0.25, label, ha="center", va="top", fontsize=11)
-        ax.set_xlim(-1.2, 4.2)
-        ax.set_ylim(-1.1, 0.5)
-        ax.axis("off")
-        plt.tight_layout()
+            fig.add_annotation(x=x, y=-0.25, text=label.replace("$", "&#36;"),  # no MathJax
+                               showarrow=False, yanchor="top",
+                               font=dict(size=15))
+        fig.add_trace(go.Scatter(x=[0, 3], y=[0, 0], mode="markers", hoverinfo="skip",
+                                 marker=dict(size=34, color="#14213D"), showlegend=False))
+        fig.update_xaxes(range=[-1.2, 4.2], visible=False)
+        fig.update_yaxes(range=[-0.95, 0.45], visible=False)
 
         return mo.vstack(
             [
@@ -812,7 +826,7 @@ def _(terms, limit_slider, mo, plt, two_bus):
                     "Gen A (\\$20, 200 MW) at bus 1 · Gen B (\\$50, 200 MW) and 150 MW of load at bus 2"
                 ),
                 limit_slider,
-                fig,
+                show_chart(fig, 210),
                 mo.hstack(
                     [
                         mo.stat(f"${lmp['bus 1']:.0f}", label="LMP, bus 1"),
@@ -877,7 +891,7 @@ def _(QUIET, mo, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(mo, plt, three_bus):
+def _(go, mo, show_chart, three_bus):
     def three_bus_slide():
         n = three_bus()
         lmp = n.buses_t.marginal_price.iloc[0]
@@ -886,7 +900,7 @@ def _(mo, plt, three_bus):
 
         pos = {"bus 1": (0, 0), "bus 2": (2, 0), "bus 3": (1, 1.6)}
         center = (1, 0.53)
-        fig, ax = plt.subplots(figsize=(7, 4.2))
+        fig = go.Figure()
         for name, line in n.lines.iterrows():
             start, end = pos[line.bus0], pos[line.bus1]
             flow = flows[name]
@@ -895,11 +909,14 @@ def _(mo, plt, three_bus):
             binding = abs(flow) >= line.s_nom - 1e-6
             color = "#E07A1F" if binding else "#8A9BB8"
             if abs(flow) < 1e-6:
-                ax.plot([start[0], end[0]], [start[1], end[1]], color=color, lw=4, ls=":")
+                fig.add_trace(go.Scatter(x=[start[0], end[0]], y=[start[1], end[1]], mode="lines",
+                                         line=dict(color=color, width=4, dash="dot"),
+                                         hoverinfo="skip", showlegend=False))
             else:
-                ax.annotate("", xy=end, xytext=start,
-                            arrowprops=dict(arrowstyle="-|>,head_width=0.5,head_length=0.9",
-                                            color=color, lw=4, shrinkA=14, shrinkB=14))
+                fig.add_annotation(x=end[0], y=end[1], ax=start[0], ay=start[1],
+                                   xref="x", yref="y", axref="x", ayref="y", text="",
+                                   showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=4,
+                                   arrowcolor=color, standoff=18, startstandoff=18)
             # label on the outside of the triangle, off the line
             mid = ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2)
             dx, dy = mid[0] - center[0], mid[1] - center[1]
@@ -907,30 +924,31 @@ def _(mo, plt, three_bus):
             label = f"{abs(flow):.0f} MW" + (" (at limit)" if binding else "")
             if abs(flow) < 1e-6:
                 label = "0 MW (see next slide)"
-            ax.text(mid[0] + 0.45 * dx / norm, mid[1] + 0.45 * dy / norm, label,
-                    ha="center", va="center", fontsize=11,
-                    fontweight="bold" if binding else "normal")
+            fig.add_annotation(x=mid[0] + 0.45 * dx / norm, y=mid[1] + 0.45 * dy / norm,
+                               text=f"<b>{label}</b>" if binding else label, showarrow=False,
+                               font=dict(size=15))
         labels = {
-            "bus 1": f"Bus 1\nGen 1 (\\$20): {output['Gen 1']:.0f} MW",
-            "bus 2": f"Bus 2\nGen 2 (\\$50): {output['Gen 2']:.0f} MW",
-            "bus 3": "Bus 3\nLoad 300 MW",
+            "bus 1": f"Bus 1<br>Gen 1 ($20): {output['Gen 1']:.0f} MW",
+            "bus 2": f"Bus 2<br>Gen 2 ($50): {output['Gen 2']:.0f} MW",
+            "bus 3": "Bus 3<br>Load 300 MW",
         }
         for bus, (x, y) in pos.items():
-            ax.scatter([x], [y], s=500, color="#14213D", zorder=3)
-            ax.text(x, y - 0.32 if y == 0 else y + 0.18,
-                    f"{labels[bus]}\nLMP \\${lmp[bus]:.0f}",
-                    ha="center", va="top" if y == 0 else "bottom", fontsize=11)
-        ax.set_xlim(-0.9, 2.9)
-        ax.set_ylim(-0.9, 2.3)
-        ax.axis("off")
-        plt.tight_layout()
+            fig.add_annotation(x=x, y=y - 0.32 if y == 0 else y + 0.18,
+                               text=f"{labels[bus]}<br>LMP ${lmp[bus]:.0f}".replace("$", "&#36;"),
+                               showarrow=False,
+                               yanchor="top" if y == 0 else "bottom", font=dict(size=15))
+        fig.add_trace(go.Scatter(x=[x for x, _ in pos.values()], y=[y for _, y in pos.values()],
+                                 mode="markers", marker=dict(size=30, color="#14213D"),
+                                 hoverinfo="skip", showlegend=False))
+        fig.update_xaxes(range=[-0.9, 2.9], visible=False)
+        fig.update_yaxes(range=[-0.9, 2.3], visible=False)
 
         return mo.vstack(
             [
                 mo.md("## You can’t route power: a three-bus loop"),
                 mo.hstack(
                     [
-                        fig,
+                        show_chart(fig, 420),
                         mo.md(
                             f"""
     Three identical lines. Cheap Gen 1 (\\$20) and expensive Gen 2 (\\$50) serve a
@@ -1031,7 +1049,7 @@ def _(QUIET, mo, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(terms, baker_three_bus, bus1_load_switch, mo, plt):
+def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
     def negative_price_slide(add_load):
         n = baker_three_bus(1.0 if add_load else 0.0)
         lmp = n.buses_t.marginal_price.iloc[0]
@@ -1044,35 +1062,35 @@ def _(terms, baker_three_bus, bus1_load_switch, mo, plt):
             return f"{sign}{'\\$' if escape else '$'}{abs(value):,.0f}"
 
         pos = {"Bus1": (0, 1.6), "Bus2": (2, 1.6), "Bus3": (1, 0)}
-        fig, ax = plt.subplots(figsize=(6.4, 3.9))
+        fig = go.Figure()
         for name, line in n.lines.iterrows():
             start, end = pos[line.bus0], pos[line.bus1]
             if flows[name] < 0:  # draw arrows in the direction power flows
                 start, end = end, start
             binding = abs(flows[name]) >= line.s_nom - 1e-6
-            ax.annotate("", xy=end, xytext=start,
-                        arrowprops=dict(arrowstyle="-|>,head_width=0.5,head_length=0.9",
-                                        color="#E07A1F" if binding else "#8A9BB8", lw=4,
-                                        shrinkA=14, shrinkB=14))
+            fig.add_annotation(x=end[0], y=end[1], ax=start[0], ay=start[1],
+                               xref="x", yref="y", axref="x", ayref="y", text="",
+                               showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=4,
+                               arrowcolor="#E07A1F" if binding else "#8A9BB8",
+                               standoff=17, startstandoff=17)
             mid = ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2)
             offset = (0.0, 0.18) if mid[1] > 1.5 else ((-0.42, 0) if mid[0] < 1 else (0.42, 0))
-            ax.text(mid[0] + offset[0], mid[1] + offset[1],
-                    f"{abs(flows[name]):.0f} MW" + (" (limit)" if binding else ""),
-                    ha="center", va="center", fontsize=10,
-                    fontweight="bold" if binding else "normal")
+            label = f"{abs(flows[name]):.0f} MW" + (" (limit)" if binding else "")
+            fig.add_annotation(x=mid[0] + offset[0], y=mid[1] + offset[1],
+                               text=f"<b>{label}</b>" if binding else label, showarrow=False)
         for k, (bus, (x, y)) in enumerate(pos.items(), start=1):
             gen = f"Gen{k}"
             label = f"{bus}: Gen{k} (${n.generators.marginal_cost[gen]:.0f}) {abs(output[gen]):.0f} MW"
             if bus in loads:
-                label += f"\nload {loads[bus]:.0f} MW"
-            label += f"\nLMP {dollars(lmp[bus])}"
-            ax.scatter([x], [y], s=450, color="#E73F74" if lmp[bus] < 0 else "#14213D", zorder=3)
-            ax.text(x, y + 0.22 if y > 1 else y - 0.25, label, ha="center",
-                    va="bottom" if y > 1 else "top", fontsize=10)
-        ax.set_xlim(-1.0, 3.0)
-        ax.set_ylim(-0.9, 2.5)
-        ax.axis("off")
-        plt.tight_layout()
+                label += f"<br>load {loads[bus]:.0f} MW"
+            label += f"<br>LMP {dollars(lmp[bus])}"
+            fig.add_annotation(x=x, y=y + 0.22 if y > 1 else y - 0.25,
+                               text=label.replace("$", "&#36;"), showarrow=False,
+                               yanchor="bottom" if y > 1 else "top")
+            fig.add_trace(go.Scatter(x=[x], y=[y], mode="markers", hoverinfo="skip", showlegend=False,
+                                     marker=dict(size=28, color="#E73F74" if lmp[bus] < 0 else "#14213D")))
+        fig.update_xaxes(range=[-1.0, 3.0], visible=False)
+        fig.update_yaxes(range=[-0.9, 2.5], visible=False)
 
         saved = " (was \\$7,600: the extra load **saved \\$60**)" if add_load else ""
         return mo.vstack(
@@ -1080,7 +1098,7 @@ def _(terms, baker_three_bus, bus1_load_switch, mo, plt):
                 mo.md("## A negative price: more load, lower cost"),
                 mo.hstack(
                     [
-                        mo.vstack([fig, bus1_load_switch]),
+                        mo.vstack([show_chart(fig, 380), bus1_load_switch]),
                         mo.md(
                             f"""
     Line 1–3 is limited to **10 MW**, and every MW sent to Bus3 loads it: 2/3 MW from Gen1, 1/3 MW
@@ -1168,7 +1186,7 @@ def _(mo, terms):
                 n.model.add_constraints(net >= -limit, name=f"Path-{name}-rev")
         return extra_functionality
 
-    mo.vstack([mo.md("## Code: adding WECC path limits as custom LP constraints"), mo.show_code(), terms(r"**path price**: the constraint’s dual, \$ per MWh of transfer · `extra_functionality`: PyPSA hook to add your own LP rows")])
+    mo.vstack([mo.md("## Code: adding WECC path limits as custom LP constraints"), mo.show_code(), terms(r"**WECC path (interface)**: lines between two areas with a combined flow limit · **path price**: its dual, \$/MWh of transfer · `extra_functionality`: PyPSA hook to add your own LP rows")])
     return add_path_limits, path_limits
 
 
@@ -1292,7 +1310,7 @@ def _(terms,
             ]
         )
 
-    mo.vstack([western_lmp_slide(opf_buses, opf_lines, opf_paths), terms(r"**path (interface)**: lines between two areas with a combined flow limit · **price zone**: region with similar LMPs, separated by binding limits")])
+    mo.vstack([western_lmp_slide(opf_buses, opf_lines, opf_paths), terms(r"**price zone**: region with similar LMPs, separated by binding limits")])
     return opf_buses, opf_lines, opf_paths
 
 
@@ -1332,12 +1350,12 @@ def _(ASSETS, json, mo, terms):
             ]
         )
 
-    mo.vstack([ercot_map_slide(), terms(r"**SCED** (security-constrained economic dispatch): ERCOT’s 5-minute dispatch LP · **pricing node**: a bus where an LMP is published · **LZ_RAYBN**: Rayburn electric cooperative’s load zone")])
+    mo.vstack([ercot_map_slide(), terms(r"**SCED**: ERCOT’s 5-minute dispatch LP (security-constrained economic dispatch) · **pricing node**: a bus with a published LMP · **HB_ / LZ_**: hub / load zone")])
     return
 
 
 @app.cell(hide_code=True)
-def _(terms, mo, pd, plt):
+def _(terms, go, mo, pd, show_chart):
     # ERCOT Real-Time Settlement Point Prices, interval ending 01:45, 10 Nov 2026
     # https://www.ercot.com/content/cdr/html/real_time_spp.html
     ercot = pd.Series(
@@ -1354,22 +1372,20 @@ def _(terms, mo, pd, plt):
             "#E07A1F" if "WEST" in k else "#2F6DB5" if k == "HB_PAN" else "#8A9BB8"
             for k in ercot.index
         ]
-        fig, ax = plt.subplots(figsize=(8, 4.6))
-        ax.barh(ercot.index, ercot.values, color=colors)
-        for i, price in enumerate(ercot.values):
-            ax.text(price + 1.5, i, f"${price:.2f}", va="center", fontsize=10)
-        ax.invert_yaxis()
-        ax.set_xlabel("$/MWh")
-        ax.set_xlim(0, 165)
-        ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+        fig = go.Figure(go.Bar(
+            x=ercot.values, y=ercot.index, orientation="h", marker_color=colors,
+            text=[f"${price:.2f}" for price in ercot.values], textposition="outside",
+            cliponaxis=False, hovertemplate="%{y}: $%{x:.2f}/MWh<extra></extra>",
+        ))
+        fig.update_xaxes(title="$/MWh", range=[0, 165])
+        fig.update_yaxes(autorange="reversed")
 
         return mo.vstack(
             [
                 mo.md("## Real data: prices differ by location (ERCOT, Texas)"),
                 mo.hstack(
                     [
-                        fig,
+                        show_chart(fig, 420, bargap=0.25),
                         mo.md(
                             """
     In the same 15 minutes, the **Panhandle** cleared at **\\$13.49/MWh** and **far West Texas** at **\\$142.98**.
@@ -1411,7 +1427,7 @@ def _(mo):
 
     **Why energy prices alone may not get plants built (the *missing money* problem):**
     - A **peaker** may run only a few hundred hours a year, and must earn back its fixed costs in those hours.
-    - **Price and offer caps** clip exactly those scarcity hours (FERC caps eastern-ISO offers at \$1,000/MWh, or verified cost up to \$2,000).
+    - **Price and offer caps** clip exactly those scarcity hours (FERC caps ISO/RTO offers at \$1,000/MWh, or verified cost up to \$2,000).
     - **Demand barely responds**, so in a true shortage operators shed load instead of raising the price. Reliability is
       shared by everyone, so no single buyer pays for enough of it.
 
@@ -1440,14 +1456,12 @@ def _(mo):
     \end{aligned}
     $$
 
-    - **Reserves** are capacity held back for the unexpected: a sudden plant or line outage, **and errors in the
-      load, wind and solar forecasts**. So $R^{\text{req}}$ grows with the largest single outage *and* with the
-      uncertainty in net load; ISOs also buy ramping reserves for forecast error. Here reserves come from
-      dispatchable units; wind and solar enter through their energy, $0 \le p_j \le \overline P^{\,\text{avail}}_j$.
+    - $R^{\text{req}}$ grows with the **largest single outage** and with **forecast error** in net load. Here only
+      dispatchable units hold reserve; wind and solar enter through $0 \le p_j \le \overline P^{\,\text{avail}}_j$.
     - **Reserve price = $\sigma$**, the dual of the requirement.
     - **Coupling:** a MW held in reserve can’t produce energy, so when reserves are scarce the energy price rises too.
 
-    <small>**Terms** · $i$: all units (wind and solar serve load but hold no reserve here) · $p_i, c_i$: energy output and offer, $\lambda$: energy price, as before · $\sigma$: reserve price (\$/MW) · $r_i$: MW of reserve from unit $i$ · $b_i$: its reserve offer (\$/MW) · $R^{\text{req}}$: required reserve (MW) · **net load**: load minus wind and solar output · $\overline\mu_i$ here prices the shared limit $p_i + r_i \le \overline P_i$</small>
+    <small>**Terms** · $i$: all units (wind and solar serve load but hold no reserve here) · $p_i, c_i$: energy output and offer, $\lambda$: energy price, as before · $\sigma$: reserve price (\$/MW per hour) · $r_i$: MW of reserve from unit $i$ · $b_i$: its reserve offer (\$/MW per hour) · $R^{\text{req}}$: required reserve (MW) · **net load**: load minus wind and solar output · $\overline\mu_i$ here prices the shared limit $p_i + r_i \le \overline P_i$</small>
     """
     )
     return
@@ -1464,7 +1478,7 @@ def _(mo):
     | Product | Paid | When |
     |:---|:---|:---|
     | **Energy** | $\lambda \times p_i$ (\$/MWh × MWh) | for what it actually produces |
-    | **Reserve** | $\sigma \times r_i$ (\$/MW × MW held) | for standing by, used or not |
+    | **Reserve** | $\sigma \times r_i$ (\$/MW-h × MW held) | for standing by, used or not |
     | **Deployed reserve** | real-time price × extra MWh | only if the ISO calls on it |
 
     **Example: a coal unit held at its minimum** $\underline P_i$ earns $\lambda$ per MWh; its headroom $\overline P_i - \underline P_i$ can be **spinning reserve**, earning $\sigma$ per MW.
@@ -1486,9 +1500,7 @@ def _(mo):
         r"""
     ## Paying for capacity: resource adequacy
 
-    Energy prices pay for **MWh**. But the system also needs enough **MW** on hand for the
-    hottest hour of the year, and energy revenue alone often doesn’t cover a peaker’s fixed costs
-    (the *missing money* problem).
+    The first answer to *missing money*: pay for **MW** directly. Three US approaches:
 
     | Approach | Where | How it works |
     |:---|:---|:---|
@@ -1558,37 +1570,40 @@ def _(terms, linprog, mo, np, pd):
 
 
 @app.cell(hide_code=True)
-def _(clear_capacity_auction, mo, np, plt, requirement_slider):
+def _(clear_capacity_auction, go, mo, np, requirement_slider, show_chart):
     def capacity_auction_slide(requirement):
         offers, demand, price = clear_capacity_auction(requirement)
 
-        fig, ax = plt.subplots(figsize=(8, 4))
+        fig = go.Figure()
         supply = offers.sort_values("price")
-        ax.step(np.concatenate([[0], supply.mw.cumsum()]),
-                np.concatenate([supply.price, [supply.price.iloc[-1]]]),
-                where="post", color="#2F4A7A", lw=2.5, label="Supply offers")
-        ax.step(np.concatenate([[0], demand.mw.cumsum()]),
-                np.concatenate([demand.value, [0]]),
-                where="post", color="#E07A1F", lw=2.5, label="Demand curve")
-        ax.axhline(price, color="#A84F0A", ls="--", lw=1.5)
-        ax.text(200, price + 12, f"Clearing price ${price:.0f}/MW-day",
-                color="#A84F0A", fontweight="bold")
-        ax.axvline(requirement, color="#6A6A6A", ls=":", lw=1.5)
-        ax.text(requirement - 150, 470, "Reliability\nrequirement", ha="right", va="top",
-                fontsize=9, color="#6A6A6A")
-        ax.set_xlabel("MW")
-        ax.set_ylabel("$/MW-day")
-        ax.set_ylim(0, 480)
-        ax.legend(loc="center left")
-        ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+        fig.add_trace(go.Scatter(
+            x=np.concatenate([[0], supply.mw.cumsum()]),
+            y=np.concatenate([supply.price, [supply.price.iloc[-1]]]),
+            mode="lines", line=dict(shape="hv", color="#2F4A7A", width=2.5), name="Supply offers",
+        ))
+        fig.add_trace(go.Scatter(
+            x=np.concatenate([[0], demand.mw.cumsum()]), y=np.concatenate([demand.value, [0]]),
+            mode="lines", line=dict(shape="hv", color="#E07A1F", width=2.5), name="Demand curve",
+        ))
+        fig.add_hline(price, line=dict(color="#A84F0A", dash="dash", width=1.5))
+        fig.add_annotation(x=200, y=price, text=f"<b>Clearing price ${price:.0f}/MW-day</b>",
+                           showarrow=False, xanchor="left", yanchor="bottom", yshift=4,
+                           font=dict(color="#A84F0A"))
+        fig.add_vline(requirement, line=dict(color="#6A6A6A", dash="dot", width=1.5))
+        side = 1 if requirement <= 10300 else -1  # label beside the line, away from the plot edge
+        fig.add_annotation(x=requirement + side * 150, y=470, text="Reliability<br>requirement",
+                           showarrow=False, xanchor="left" if side > 0 else "right", yanchor="top",
+                           align="left" if side > 0 else "right", font=dict(size=12, color="#6A6A6A"))
+        fig.update_xaxes(title="MW")
+        fig.update_yaxes(title="$/MW-day", range=[0, 480])
 
         cleared = offers.set_index("resource")[["price", "mw", "cleared"]].round(0)
         return mo.vstack(
             [
                 mo.md("## Clearing the auction: the price is the dual of the balance"),
                 requirement_slider,
-                mo.hstack([fig, cleared], widths=[1.4, 1]),
+                mo.hstack([show_chart(fig, 380, legend=dict(x=0.01, y=0.5, yanchor="middle")), cleared],
+                          widths=[1.4, 1]),
                 mo.md(
                     f"Cleared **{offers.cleared.sum():,.0f} MW**. Every cleared resource is paid "
                     f"**\\${price:.0f}/MW-day**, the dual $\\pi$ of MW cleared = MW bought, whatever it offered. "
@@ -1618,51 +1633,52 @@ def _(mo):
     - **Branch and bound:** solve the LP *relaxation* (let $0 \le u \le 1$); if some $u$ is fractional, split into
       $u = 0$ and $u = 1$ subproblems; prune any branch whose LP bound is worse than the best solution found.
       **Cutting planes** tighten the relaxation along the way.
-    - NP-hard in general, yet modern solvers (Gurobi, CPLEX, HiGHS) solve ISO-scale day-ahead problems within the
-      market’s time window. ISOs replaced older Lagrangian-relaxation heuristics with MILP in the 2000s and 2010s
-      (PJM first, around 2005).
+    - NP-hard in general, yet commercial solvers (Gurobi, CPLEX) solve ISO-scale day-ahead problems within the
+      market’s time window.
 
     **This section:** why the day-ahead market needs binaries, a 24-hour UC in PyPSA, and the catch: **a MILP has no duals**, so where does the price come from?
 
-    <small>**Terms** · **LP relaxation**: the MILP with integrality dropped; its optimum bounds the MILP’s · **NP-hard**: no known method that is fast on every instance · **Lagrangian relaxation**: move hard constraints into the objective with multipliers</small>
+    <small>**Terms** · **LP relaxation**: the MILP with integrality dropped; its optimum bounds the MILP’s · **NP-hard**: no known method that is fast on every instance</small>
     """
     )
     return
 
 
 @app.cell(hide_code=True)
-def _(terms, mo, plt):
+def _(terms, make_subplots, mo, show_chart):
     def why_milp_slide(p_min=150, p_max=400, cost=30, no_load=2000, startup=5000):
-        fig, (set_ax, cost_ax) = plt.subplots(1, 2, figsize=(10, 3.2))
+        fig = make_subplots(1, 2, horizontal_spacing=0.1, subplot_titles=(
+            "Feasible outputs are not convex", "Cost jumps when the unit turns on"))
+        fig.update_annotations(font_size=14)
 
         # feasible output: {0} ∪ [Pmin, Pmax], versus its LP relaxation [0, Pmax]
-        set_ax.plot([0, p_max], [0.35, 0.35], color="#C9C2B0", lw=8, solid_capstyle="butt")
-        set_ax.text(p_max / 2, 0.5, "LP relaxation: [0, Pmax] allows 20 MW",
-                    ha="center", fontsize=10, color="#6A6A6A")
-        set_ax.plot([p_min, p_max], [0, 0], color="#2F4A7A", lw=8, solid_capstyle="butt")
-        set_ax.plot([0], [0], "o", color="#2F4A7A", ms=11)
-        set_ax.text(p_min / 2, -0.22, "off: 0", ha="center", fontsize=10)
-        set_ax.text((p_min + p_max) / 2, -0.22, "on: [Pmin, Pmax]", ha="center", fontsize=10)
-        set_ax.set_xlim(-30, p_max + 30)
-        set_ax.set_ylim(-0.4, 0.7)
-        set_ax.set_yticks([])
-        set_ax.set_xlabel("Output (MW)")
-        set_ax.set_title("Feasible outputs are not convex", fontsize=11)
+        fig.add_shape(type="line", x0=0, x1=p_max, y0=0.35, y1=0.35, row=1, col=1,
+                      line=dict(color="#C9C2B0", width=10))
+        fig.add_annotation(x=p_max / 2, y=0.5, text="LP relaxation: [0, Pmax] allows 20 MW",
+                           showarrow=False, font=dict(color="#6A6A6A"), row=1, col=1)
+        fig.add_shape(type="line", x0=p_min, x1=p_max, y0=0, y1=0, row=1, col=1,
+                      line=dict(color="#2F4A7A", width=10))
+        fig.add_scatter(x=[0], y=[0], mode="markers", marker=dict(size=14, color="#2F4A7A"),
+                        hoverinfo="skip", showlegend=False, row=1, col=1)
+        fig.add_annotation(x=p_min / 2, y=-0.22, text="off: 0", showarrow=False, row=1, col=1)
+        fig.add_annotation(x=(p_min + p_max) / 2, y=-0.22, text="on: [Pmin, Pmax]",
+                           showarrow=False, row=1, col=1)
+        fig.update_xaxes(title="Output (MW)", range=[-30, p_max + 30], row=1, col=1)
+        fig.update_yaxes(range=[-0.4, 0.7], visible=False, row=1, col=1)
 
         # cost: 0 when off; jumps by startup + no-load cost when the unit turns on
-        on = range(p_min, p_max + 1, 10)
-        cost_ax.plot([0], [0], "o", color="#E07A1F", ms=9)
-        cost_ax.plot(list(on), [startup + no_load + cost * p for p in on], color="#E07A1F", lw=3)
-        cost_ax.annotate("startup + no-load cost", xy=(p_min, startup + no_load + cost * p_min),
-                         xytext=(10, startup + no_load + cost * p_max * 0.9),
-                         arrowprops=dict(arrowstyle="->"), fontsize=10)
-        cost_ax.set_xlabel("Output (MW)")
-        cost_ax.set_ylabel("$ per hour")
-        cost_ax.set_title("Cost jumps when the unit turns on", fontsize=11)
-        for ax in (set_ax, cost_ax):
-            ax.spines[["top", "right", "left"]].set_visible(False)
-        cost_ax.spines["left"].set_visible(True)
-        plt.tight_layout()
+        on = list(range(p_min, p_max + 1, 10))
+        fig.add_scatter(x=[0], y=[0], mode="markers", marker=dict(size=12, color="#E07A1F"),
+                        showlegend=False, hovertemplate="off: $0 per hour<extra></extra>", row=1, col=2)
+        fig.add_scatter(x=on, y=[startup + no_load + cost * p for p in on], mode="lines",
+                        line=dict(color="#E07A1F", width=3), showlegend=False,
+                        hovertemplate="%{x} MW: $%{y:,.0f} per hour<extra></extra>", row=1, col=2)
+        fig.add_annotation(x=p_min, y=startup + no_load + cost * p_min,
+                           ax=10, ay=startup + no_load + cost * p_max * 0.9, axref="x2", ayref="y2",
+                           text="startup + no-load cost", showarrow=True, arrowhead=2,
+                           xanchor="left", row=1, col=2)
+        fig.update_xaxes(title="Output (MW)", row=1, col=2)
+        fig.update_yaxes(title="$ per hour", row=1, col=2)
 
         return mo.vstack(
             [
@@ -1678,7 +1694,7 @@ def _(terms, mo, plt):
     - **Fixed costs:** startup and no-load costs are paid only when the unit turns on.
     """
                 ),
-                fig,
+                show_chart(fig, 290, margin=dict(l=10, r=10, t=30, b=10)),
                 mo.md(
                     "**Real time is mostly an LP** because commitments are already fixed (ISOs still commit some fast-start "
                     "units in real time): each online unit’s range "
@@ -1695,7 +1711,7 @@ def _(terms, mo, plt):
 def _(mo):
     mo.md(
         r"""
-    ## Real plants are on or off: unit commitment is a MILP
+    ## The unit commitment MILP: 24 hours at once
 
     $$
     \begin{aligned}
@@ -1754,37 +1770,39 @@ def _(QUIET, mo, np, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(demand_profile, hours, mo, plt, unit_commitment):
+def _(demand_profile, go, hours, make_subplots, mo, show_chart, unit_commitment):
     uc = unit_commitment()
     status = uc.generators_t.status.round().astype(int)
 
     def uc_chart_slide():
-        fig, (dispatch_ax, status_ax) = plt.subplots(
-            2, 1, figsize=(9, 4.8), sharex=True, gridspec_kw={"height_ratios": [3, 1]}
-        )
-        dispatch_ax.stackplot(hours, uc.generators_t.p.T.values,
-                              labels=uc.generators_t.p.columns,
-                              colors=["#2F4A7A", "#E07A1F", "#8A9BB8"], step="post")
-        dispatch_ax.step(hours, demand_profile, where="post", color="#14213D", lw=2,
-                         label="Demand")
-        dispatch_ax.set_ylabel("MW")
-        dispatch_ax.legend(loc="upper left", fontsize=9, ncol=4)
-        dispatch_ax.spines[["top", "right"]].set_visible(False)
-        status_ax.imshow(status.T.values, aspect="auto", cmap="Greys", vmin=0, vmax=1.6,
-                         extent=[-0.5, 23.5, len(status.columns) - 0.5, -0.5])
-        status_ax.set_yticks(range(len(status.columns)), status.columns)
-        status_ax.set_xlabel("Hour")
-        status_ax.set_title("On/off status $u_{it}$ (dark = on)", fontsize=10)
-        plt.tight_layout()
+        fig = make_subplots(2, 1, shared_xaxes=True, row_heights=[0.75, 0.25], vertical_spacing=0.1,
+                            subplot_titles=("", "On/off status u<sub>it</sub> (dark = on)"))
+        fig.update_annotations(font_size=13)
+        for name, color in zip(uc.generators_t.p.columns, ["#2F4A7A", "#E07A1F", "#8A9BB8"]):
+            fig.add_scatter(x=hours, y=uc.generators_t.p[name], name=name, stackgroup="dispatch",
+                            mode="none", line=dict(shape="hv"), fillcolor=color,
+                            hovertemplate=f"{name}: %{{y:.0f}} MW<extra></extra>", row=1, col=1)
+        fig.add_scatter(x=hours, y=demand_profile, name="Demand", mode="lines",
+                        line=dict(shape="hv", color="#14213D", width=2),
+                        hovertemplate="Demand: %{y:.0f} MW<extra></extra>", row=1, col=1)
+        fig.add_heatmap(x=hours, y=list(status.columns), z=status.T.values, zmin=0, zmax=1.6,
+                        colorscale="Greys", showscale=False, xgap=1, ygap=1,
+                        hovertemplate="%{y}, hour %{x}: u = %{z}<extra></extra>", row=2, col=1)
+        fig.update_yaxes(title="MW", row=1, col=1)
+        fig.update_yaxes(autorange="reversed", row=2, col=1)
+        fig.update_xaxes(title="Hour", row=2, col=1)
 
-        return mo.vstack([mo.md("## Solving the MILP with PyPSA + HiGHS"), fig])
+        return mo.vstack([mo.md("## Solving the MILP with PyPSA + HiGHS"), show_chart(
+            fig, 470, margin=dict(l=10, r=10, t=10, b=10),
+            legend=dict(orientation="h", x=0.01, y=1.0, yanchor="top"),
+        )])
 
     uc_chart_slide()
     return status, uc
 
 
 @app.cell(hide_code=True)
-def _(terms, itertools, mo, np, plt, units):
+def _(terms, go, itertools, mo, np, show_chart, units):
     def one_hour_cost(demand):
         """Exact minimum cost of serving `demand` for one hour with the UC units:
         try every on/off pattern (the MILP's binaries), dispatch the rest by merit order."""
@@ -1820,16 +1838,16 @@ def _(terms, itertools, mo, np, plt, units):
         feasible = np.isfinite(cost)
         hull = lower_convex_hull(demand[feasible], cost[feasible])
 
-        fig, ax = plt.subplots(figsize=(9, 2.7))
-        ax.plot(demand, np.where(feasible, cost, np.nan) / 1e3, color="#2F4A7A", lw=2.5,
-                label="MILP optimal cost C(D)")
-        ax.plot(hull[:, 0], hull[:, 1] / 1e3, color="#E07A1F", lw=2, ls="--",
-                label="Convex hull = Lagrangian dual (what a tight relaxation sees)")
-        ax.set_xlabel("Demand D (MW), one hour")
-        ax.set_ylabel("Cost ($ thousand)")
-        ax.legend(loc="upper left", fontsize=9)
-        ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+        fig = go.Figure()
+        fig.add_scatter(x=demand, y=np.where(feasible, cost, np.nan) / 1e3, mode="lines",
+                        line=dict(color="#2F4A7A", width=2.5), name="MILP optimal cost C(D)",
+                        hovertemplate="D = %{x} MW: $%{y:.1f}k<extra></extra>")
+        fig.add_scatter(x=hull[:, 0], y=hull[:, 1] / 1e3, mode="lines",
+                        line=dict(color="#E07A1F", width=2, dash="dash"),
+                        name="Convex hull = Lagrangian dual (what a tight relaxation sees)",
+                        hovertemplate="D = %{x} MW: $%{y:.1f}k<extra></extra>")
+        fig.update_xaxes(title="Demand D (MW), one hour")
+        fig.update_yaxes(title="Cost ($ thousand)")
 
         return mo.vstack(
             [
@@ -1841,13 +1859,13 @@ def _(terms, itertools, mo, np, plt, units):
     slope **supports** the curve at the optimum, so every generator is happy with its LP output (strong duality).
     """
                 ),
-                fig,
+                show_chart(fig, 250, legend=dict(x=0.01, y=1, font=dict(size=12))),
                 mo.md(
                     r"""
     With on/off decisions the feasible set is a **union** of polyhedra, so $C(D)$ is **not convex**: it **jumps**
-    at startups and has a **gap** (here 0–75 MW). Where $C(D)$ sits above its convex hull, **no line supports it**:
-    no single price makes the MILP solution every generator’s best response. Only Lagrangian duals exist, with a
-    **duality gap**, so solvers report none.
+    at startups and is undefined for 0–75 MW. Where $C(D)$ sits above its convex hull, **no line supports it**:
+    no single price makes the MILP solution every generator’s best response. The Lagrangian dual leaves a
+    **duality gap**, and branch-and-bound reports no duals.
 
     **In short:** a market price needs **strong duality**. LPs always have it; MILPs only where $C(D)$ touches its
     hull. **Convex hull pricing** uses the hull’s slope, the price that minimizes the gap, and so the uplift.
@@ -1861,7 +1879,7 @@ def _(terms, itertools, mo, np, plt, units):
 
 
 @app.cell(hide_code=True)
-def _(hours, mo, pd, plt, status, uc, unit_commitment, units):
+def _(go, hours, mo, pd, show_chart, status, uc, unit_commitment, units):
     fixed = unit_commitment(fixed_status=status)
     lp_prices = fixed.buses_t.marginal_price["grid"]
 
@@ -1888,13 +1906,12 @@ def _(hours, mo, pd, plt, status, uc, unit_commitment, units):
     def pricing_slide():
         milp_prices = uc.buses_t.marginal_price["grid"]
 
-        fig, ax = plt.subplots(figsize=(7, 3.2))
-        ax.step(hours, lp_prices, where="post", color="#E07A1F", lw=2.5)
-        ax.set_xlabel("Hour")
-        ax.set_ylabel("$/MWh")
-        ax.set_title("Prices from the LP with binaries fixed", fontsize=11)
-        ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+        fig = go.Figure(go.Scatter(
+            x=hours, y=lp_prices, mode="lines", line=dict(shape="hv", color="#E07A1F", width=2.5),
+            hovertemplate="Hour %{x}: $%{y:.2f}/MWh<extra></extra>",
+        ))
+        fig.update_xaxes(title="Hour")
+        fig.update_yaxes(title="$/MWh")
 
         return mo.vstack(
             [
@@ -1904,14 +1921,16 @@ def _(hours, mo, pd, plt, status, uc, unit_commitment, units):
                     "So ISOs (and this demo) **fix the binaries at their optimal values, re-solve the LP and publish its duals**: the standard *pricing run*. "
                     "With binaries fixed, every unit’s range is convex again, so the LP has true duals:"
                 ),
-                mo.hstack([fig, uplift], widths=[1.2, 1]),
+                mo.hstack([show_chart(fig, 290, margin=dict(l=10, r=10, t=40, b=10), title=dict(
+                    text="Prices from the LP with binaries fixed", font=dict(size=14), x=0.5)),
+                    uplift], widths=[1.2, 1]),
                 mo.callout(
                     mo.md(
-                        "At those prices, a unit that was switched on may not recover its startup cost, "
+                        "At those prices, a unit that was switched on may not recover its startup cost or its losses at minimum output, "
                         "so the ISO pays it a make-whole **uplift** outside the price. "
                         "Alternatives price off a convex relaxation instead: **convex hull pricing**, and "
                         "MISO’s **ELMP** (Extended LMP), which relaxes fast-start units’ on/off variables "
-                        "from {0, 1} to [0, 1] so their startup and no-load costs can set the price; PJM, NYISO and ISO-NE use similar fast-start pricing."
+                        "from {0, 1} to [0, 1] so their startup and no-load costs can set the price; PJM, NYISO, ISO-NE and SPP use similar fast-start pricing."
                     ),
                     kind="warn",
                 ),
@@ -1933,7 +1952,7 @@ def _(mo):
     - **Deadline:** the day-ahead market has to clear in a fixed window, so solvers run under time limits with an optimality gap.
     - **Formulation:** tight formulations matter. An LP relaxation close to the convex hull lets branch-and-bound finish in time.
 
-    US ISOs replaced Lagrangian relaxation with commercial MILP solvers in the 2000s–2010s,
+    US ISOs replaced Lagrangian relaxation with commercial MILP solvers in the 2000s–2010s (PJM first, around 2005),
     and FERC has credited the switch with large production-cost savings.
 
     <small>**Terms** · **FERC**: federal regulator of wholesale markets · **production cost**: total fuel, startup and operating cost of serving load</small>
@@ -1992,26 +2011,37 @@ def _(mo):
     **Markowitz (1952):** choose how much of each asset to hold, trading **expected return** against **risk**.
     Assets that don’t move together offset each other: *diversification*.
     $$
-    \min_w\ w^\top \Sigma\, w \quad \text{s.t.} \quad \mu^\top w \ge \text{target}, \quad \textstyle\sum_k w_k = 1
+    \min_w\ w^\top \Sigma\, w \quad \text{s.t.} \quad m^\top w \ge \text{target}, \quad \textstyle\sum_k w_k = 1
     $$
     Measuring risk by variance makes this a **quadratic program**.
 
     - **Which risk?** Variance penalizes good surprises as much as bad ones. **CVaR** (Rockafellar & Uryasev, 2000) is
       the average of the worst outcomes, and with scenarios it becomes an **LP**.
-    - **For an LSE:** the assets are **contracts** (forwards, PPAs), the “return” is a **cost**, and the risk is
+    - **For an LSE** (a buyer facing the prices above): the assets are **contracts** (forwards, PPAs), the “return” is a **cost**, and the risk is
       months of high prices it can’t pass on to customers.
     - **Stochastic programming:** decide *now* (MW of each contract) before the uncertainty is revealed, then score
       the decision across **scenarios** of the future. Optimizing expected cost and CVaR over scenarios is a
       **(risk-averse) stochastic program**; scenarios turn the expectation and the CVaR into sums.
 
-    <small>**Terms** · $w_k$: share in asset $k$ · $\mu$: expected returns · $\Sigma$: covariance matrix · **CVaR**: conditional value at risk · **scenario**: one possible future (here a month of prices and load)</small>
+    <small>**Terms** · $w_k$: share in asset $k$ · $m$: expected returns · $\Sigma$: covariance matrix · **CVaR**: conditional value at risk · **scenario**: one possible future (here a month of prices and load)</small>
     """
     )
     return
 
 
 @app.cell(hide_code=True)
-def _(terms, history_days, hour_of_day, load_scenarios, mo, np, plt, price_scenarios):
+def _(
+    terms,
+    go,
+    history_days,
+    hour_of_day,
+    load_scenarios,
+    make_subplots,
+    mo,
+    np,
+    price_scenarios,
+    show_chart,
+):
     unhedged_cost = (load_scenarios * price_scenarios).sum(axis=1) / 1e6  # $M per month
 
     def cvar(costs, alpha=0.95):
@@ -2019,38 +2049,48 @@ def _(terms, history_days, hour_of_day, load_scenarios, mo, np, plt, price_scena
         return np.sort(costs)[int(alpha * len(costs)):].mean()
 
     def lse_risk_slide():
-        fig, (fan_ax, hist_ax) = plt.subplots(1, 2, figsize=(11, 2.7))
+        fig = make_subplots(1, 2, horizontal_spacing=0.08, subplot_titles=(
+            "PG&E DLAP day-ahead price, summer days", "Unhedged cost distribution"))
+        fig.update_annotations(font_size=14)
         by_hour = [price_scenarios[:, hour_of_day == h].ravel() for h in range(24)]
         bands = np.array([np.percentile(p, [5, 25, 50, 75, 95]) for p in by_hour])
         hours = np.arange(24)
-        fan_ax.fill_between(hours, bands[:, 0], bands[:, 4], color="#A9B4C8", label="5–95%")
-        fan_ax.fill_between(hours, bands[:, 1], bands[:, 3], color="#5B85C0", label="25–75%")
-        fan_ax.plot(hours, bands[:, 2], color="#14213D", lw=2, label="Median")
-        fan_ax.set_xlabel("Hour of day")
-        fan_ax.set_ylabel("$/MWh")
-        fan_ax.set_title("PG&E DLAP day-ahead price, summer days", fontsize=11)
-        fan_ax.legend(loc="upper left", fontsize=9)
+        for lo, hi, color, label in [(0, 4, "#A9B4C8", "5–95%"), (1, 3, "#5B85C0", "25–75%")]:
+            fig.add_scatter(x=hours, y=bands[:, lo], mode="lines", line=dict(width=0),
+                            showlegend=False, hoverinfo="skip", row=1, col=1)
+            fig.add_scatter(x=hours, y=bands[:, hi], mode="lines", line=dict(width=0), fill="tonexty",
+                            fillcolor=color, name=label, hoverinfo="skip", row=1, col=1)
+        fig.add_scatter(x=hours, y=bands[:, 2], mode="lines", line=dict(color="#14213D", width=2),
+                        name="Median", hovertemplate="Hour %{x}: median $%{y:.0f}/MWh<extra></extra>",
+                        row=1, col=1)
+        fig.update_xaxes(title="Hour of day", row=1, col=1)
+        fig.update_yaxes(title="$/MWh", row=1, col=1)
 
-        hist_ax.hist(unhedged_cost, bins=30, color="#8A9BB8")
-        hist_ax.axvline(unhedged_cost.mean(), color="#14213D", lw=2, label="Expected")
-        hist_ax.axvline(cvar(unhedged_cost), color="#E73F74", lw=2, ls="--", label="CVaR 95%")
-        hist_ax.set_xlabel("Monthly procurement cost ($M)")
-        hist_ax.set_title("Unhedged cost distribution", fontsize=11)
-        hist_ax.legend(fontsize=9)
-        for ax in (fan_ax, hist_ax):
-            ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+        size = (unhedged_cost.max() - unhedged_cost.min()) / 30 * (1 + 1e-9)  # 30 bins, max included
+        fig.add_histogram(x=unhedged_cost, xbins=dict(start=unhedged_cost.min(),
+                          end=unhedged_cost.max() + size / 2, size=size),
+                          marker_color="#8A9BB8", showlegend=False, legend="legend2",
+                          hovertemplate="$%{x}M: %{y} months<extra></extra>", row=1, col=2)
+        fig.add_vline(unhedged_cost.mean(), line=dict(color="#14213D", width=2), row=1, col=2,
+                      showlegend=True, name="Expected", legend="legend2")
+        fig.add_vline(cvar(unhedged_cost), line=dict(color="#E73F74", width=2, dash="dash"),
+                      row=1, col=2, showlegend=True, name="CVaR 95%", legend="legend2")
+        fig.update_xaxes(title="Monthly procurement cost ($M)", row=1, col=2)
 
         return mo.vstack(
             [
                 mo.md(
-                    "## Using price forecasts: portfolio analytics for an LSE\n\n"
+                    "## An LSE’s risk: volatile prices, fixed retail rates\n\n"
                     "An LSE in CAISO buys its customers’ load at the **DLAP price** every hour but sells at fixed "
                     "retail rates, so a price spike is a loss it can’t pass on. With the forecast as **scenarios**, "
-                    "every contract becomes a distribution of monthly cost. A **hedge** here is a **fixed-price contract**: "
-                    "energy bought ahead at a known price, so less of the bill depends on the market price."
+                    "the monthly bill becomes a distribution; **hedges** (fixed-price contracts) narrow it."
                 ),
-                fig,
+                show_chart(
+                    fig, 250, margin=dict(l=10, r=10, t=30, b=10), bargap=0.05,
+                    legend=dict(x=0.01, y=1, font=dict(size=12)),
+                    legend2=dict(x=1, xanchor="right", y=1, font=dict(size=12),
+                                 bgcolor="#F7F5EF", traceorder="normal"),
+                ),
                 mo.md(
                     f"Expected cost **\\${unhedged_cost.mean():.1f}M**; the worst 5% of months average "
                     f"**\\${cvar(unhedged_cost):.1f}M** (CVaR). Here the forecast resamples history; others use "
@@ -2067,44 +2107,14 @@ def _(terms, history_days, hour_of_day, load_scenarios, mo, np, plt, price_scena
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-    ## Setting up the hedging problem
-
-    **Data.** $S = 200$ equally likely monthly scenarios $s$, $T = 720$ hours $t$: price $\lambda_{st}$ (\$/MWh), load $L_{st}$ (MW).
-
-    **Hedges** are **fixed-price contracts**: the LSE buys $q_k$ MW in delivery shape $h_{kt}$ at a fixed
-    price $K_k$ and buys the rest of its load at the market price $\lambda_{st}$; in hours when contracts exceed
-    load, the **excess energy is sold at the market price**.
-
-    | Contract $k$ | Delivery shape $h_{kt}$ (per MW) | Fixed price $K_k$ | Max MW offered $\bar q_k$ |
-    |:---|:---|:---|:---|
-    | **Flat forward** | 1 every hour | forecast average + \$1.00 | 400 MW |
-    | **On-peak forward** | 1 from 6:00 to 22:00 (western block, simplified) | forecast on-peak + \$1.50 | 600 MW |
-    | **Solar PPA** | solar fleet output that day ($h_{skt}$, by scenario) | forecast solar-weighted + \$1.50 | 600 MW |
-
-    **Decision** $q_k \ge 0$: MW of contract $k$. **Cost in scenario $s$**, linear in $q$:
-    $$
-    C_s(q) = \underbrace{\textstyle\sum_t \big(L_{st} - \sum_k q_k h_{kt}\big) \lambda_{st}}_{\text{buy the rest (or sell the excess) at market}}
-    \;+\; \underbrace{\textstyle\sum_k q_k \sum_t h_{kt}\, K_k}_{\text{contracted energy at fixed prices}}
-    $$
-
-
-    <small>**Terms** · **forward**: fixed MW at a fixed price, delivered later · **PPA**: power purchase agreement, a plant’s output at a fixed price · **premium** (+\$1.00 / +\$1.50): seller’s charge above forecast value for taking price risk (without it the LP hedges to the max) · **forecast** average / on-peak / solar-weighted: mean price over delivered hours</small>
-    """
-    )
-    return
-
-
-@app.cell(hide_code=True)
 def _(
     hour_of_day,
     load_scenarios,
+    make_subplots,
     mo,
     np,
-    plt,
     price_scenarios,
+    show_chart,
     solar_scenarios,
     terms,
 ):
@@ -2115,33 +2125,39 @@ def _(
         solar = by_hour(solar_scenarios).mean(axis=1)
         on_peak = ((hours >= 6) & (hours < 22)) * 1.0
 
-        fig, (load_ax, shape_ax) = plt.subplots(1, 2, figsize=(11, 3.7))
-        load_ax.fill_between(hours, np.percentile(load, 5, axis=1), np.percentile(load, 95, axis=1),
-                             color="#A9B4C8", label="LSE load, 5–95%")
-        load_ax.plot(hours, load.mean(axis=1), color="#14213D", lw=2, label="LSE load, average")
-        load_ax.set_ylabel("MW")
-        load_ax.set_title("What the LSE must buy, hour by hour", fontsize=11)
+        fig = make_subplots(1, 2, horizontal_spacing=0.12,
+                            specs=[[{"secondary_y": True}, {"secondary_y": True}]],
+                            subplot_titles=("What the LSE must buy, hour by hour",
+                                            "What 1 MW of each contract delivers"))
+        fig.update_annotations(font_size=14)
+        fig.add_scatter(x=hours, y=np.percentile(load, 5, axis=1), mode="lines", line=dict(width=0),
+                        showlegend=False, hoverinfo="skip", row=1, col=1)
+        fig.add_scatter(x=hours, y=np.percentile(load, 95, axis=1), mode="lines", line=dict(width=0),
+                        fill="tonexty", fillcolor="#A9B4C8", name="LSE load, 5–95%", hoverinfo="skip",
+                        row=1, col=1)
+        fig.add_scatter(x=hours, y=load.mean(axis=1), mode="lines", line=dict(color="#14213D", width=2),
+                        name="LSE load, average", hovertemplate="Hour %{x}: %{y:,.0f} MW<extra></extra>",
+                        row=1, col=1)
+        fig.update_yaxes(title="MW", row=1, col=1, secondary_y=False)
 
-        shape_ax.step(hours, np.ones(24), where="mid", color="#2F4A7A", lw=4, label="Flat forward")
-        shape_ax.step(hours, on_peak, where="mid", color="#E07A1F", lw=2, ls="--", label="On-peak forward")
-        shape_ax.plot(hours, solar, color="#2A9D8F", lw=2.5, label="Solar PPA (average day)")
-        shape_ax.set_ylabel("MW delivered per MW bought")
-        shape_ax.set_title("What 1 MW of each contract delivers", fontsize=11)
-        shape_ax.set_ylim(0, 1.25)
+        for y, name, line in [
+            (np.ones(24), "Flat forward", dict(shape="hvh", color="#2F4A7A", width=4)),
+            (on_peak, "On-peak forward", dict(shape="hvh", color="#E07A1F", width=2, dash="dash")),
+            (solar, "Solar PPA (average day)", dict(color="#2A9D8F", width=2.5)),
+        ]:
+            fig.add_scatter(x=hours, y=y, mode="lines", line=line, name=name, legend="legend2",
+                            hovertemplate=f"{name}, hour %{{x}}: %{{y:.2f}}<extra></extra>", row=1, col=2)
+        fig.update_yaxes(title="MW delivered per MW bought", range=[0, 1.25], row=1, col=2,
+                         secondary_y=False)
 
-        for ax in (load_ax, shape_ax):
-            twin = ax.twinx()
-            twin.plot(hours, price.mean(axis=1), color="#E73F74", lw=2, ls="--", label="Price, average")
-            twin.set_ylabel("$/MWh", color="#E73F74")
-            twin.tick_params(axis="y", colors="#E73F74")
-            ax.set_xlabel("Hour of day")
-            ax.set_xticks([0, 6, 12, 18, 23])
-            lines = ax.get_legend_handles_labels()
-            twin_lines = twin.get_legend_handles_labels()
-            ax.legend(lines[0] + twin_lines[0], lines[1] + twin_lines[1], fontsize=8, ncol=2,
-                      loc="upper center", bbox_to_anchor=(0.5, -0.2), frameon=False)
-            ax.spines[["top"]].set_visible(False)
-        plt.tight_layout()
+        for col, legend in [(1, "legend"), (2, "legend2")]:
+            fig.add_scatter(x=hours, y=price.mean(axis=1), mode="lines", name="Price, average",
+                            line=dict(color="#E73F74", width=2, dash="dash"), legend=legend,
+                            hovertemplate="Hour %{x}: $%{y:.0f}/MWh<extra></extra>",
+                            row=1, col=col, secondary_y=True)
+            fig.update_yaxes(title=dict(text="$/MWh", font=dict(color="#E73F74")),
+                             tickfont=dict(color="#E73F74"), row=1, col=col, secondary_y=True)
+            fig.update_xaxes(title="Hour of day", tickvals=[0, 6, 12, 18, 23], row=1, col=col)
 
         daily_load = load_scenarios.reshape(len(load_scenarios), -1, 24).mean(axis=2).ravel()
         daily_price = price_scenarios.reshape(len(price_scenarios), -1, 24).mean(axis=2).ravel()
@@ -2151,7 +2167,13 @@ def _(
         return mo.vstack(
             [
                 mo.md("## What is at risk: load, prices and contract shapes"),
-                fig,
+                show_chart(
+                    fig, 350, margin=dict(l=10, r=10, t=30, b=10),
+                    legend=dict(orientation="h", x=0.22, xanchor="center", y=-0.25, yanchor="top",
+                                font=dict(size=12), bgcolor="rgba(0,0,0,0)"),
+                    legend2=dict(orientation="h", x=0.78, xanchor="center", y=-0.25, yanchor="top",
+                                 font=dict(size=12), traceorder="normal"),
+                ),
                 mo.md(
                     f"""
     **The risk:** load peaks in the evening, exactly when prices peak (5–9 pm averages
@@ -2171,30 +2193,65 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(cvar, mo, np, plt, unhedged_cost):
+def _(mo):
+    mo.md(
+        r"""
+    ## Setting up the hedging problem
+
+    **Data.** $S = 200$ equally likely monthly scenarios $s$, $T = 720$ hours $t$: price $\lambda_{st}$ (\$/MWh), load $L_{st}$ (MW).
+
+    **Hedges** are **fixed-price contracts**: the LSE buys $q_k$ MW in delivery shape $h_{kt}$ at a fixed
+    price $K_k$ and buys the rest of its load at the market price $\lambda_{st}$; in hours when contracts exceed
+    load, the **excess energy is sold at the market price**.
+
+    | Contract $k$ | Delivery shape $h_{kt}$ (per MW) | Fixed price $K_k$ | Max MW offered $\bar q_k$ |
+    |:---|:---|:---|:---|
+    | **Flat forward** | 1 every hour | forecast average + \$1.00 | 400 MW |
+    | **On-peak forward** | 1 from 6:00 to 22:00 (western block, simplified) | forecast on-peak + \$1.50 | 600 MW |
+    | **Solar PPA** | solar fleet output that day (varies by scenario) | forecast solar-weighted + \$1.50 | 600 MW |
+
+    **Decision** $q_k \ge 0$: MW of contract $k$. **Cost in scenario $s$**, linear in $q$:
+    $$
+    C_s(q) = \underbrace{\textstyle\sum_t \big(L_{st} - \sum_k q_k h_{kt}\big) \lambda_{st}}_{\text{buy the rest (or sell the excess) at market}}
+    \;+\; \underbrace{\textstyle\sum_k q_k \sum_t h_{kt}\, K_k}_{\text{contracted energy at fixed prices}}
+    $$
+
+
+    <small>**Terms** · **forward**: fixed MW at a fixed price, delivered later · **PPA**: power purchase agreement, a plant’s output at a fixed price · **premium** (+\$1.00 / +\$1.50): seller’s charge above forecast value for taking price risk (without it the LP hedges to the max) · **forecast** average / on-peak / solar-weighted: mean price over delivered hours</small>
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(cvar, go, mo, np, show_chart, unhedged_cost):
     def risk_measures_slide(alpha=0.95):
         var = np.quantile(unhedged_cost, alpha)
         tail = np.sort(unhedged_cost)[int(alpha * len(unhedged_cost)):]
 
-        fig, ax = plt.subplots(figsize=(7.5, 3.0))
-        bins = np.linspace(unhedged_cost.min(), unhedged_cost.max(), 35)
-        ax.hist(unhedged_cost, bins=bins, color="#C9C2B0", label="All 200 months")
-        ax.hist(tail, bins=bins, color="#E73F74", label=f"Worst {1 - alpha:.0%} ({len(tail)} months)")
-        ax.axvline(unhedged_cost.mean(), color="#14213D", lw=2, label=f"Expected ${unhedged_cost.mean():.1f}M")
-        ax.axvline(var, color="#E07A1F", lw=2, ls=":", label=f"VaR ${var:.1f}M")
-        ax.axvline(cvar(unhedged_cost), color="#E73F74", lw=2, ls="--",
-                   label=f"CVaR ${cvar(unhedged_cost):.1f}M")
-        ax.set_xlabel("Monthly procurement cost, unhedged ($M)")
-        ax.legend(fontsize=8, loc="upper right")
-        ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+        fig = go.Figure()
+        size = (unhedged_cost.max() - unhedged_cost.min()) / 34 * (1 + 1e-9)  # 34 bins, max included
+        bins = dict(start=unhedged_cost.min(), end=unhedged_cost.max() + size / 2, size=size)
+        fig.add_histogram(x=unhedged_cost, xbins=bins, marker_color="#C9C2B0", name="All 200 months",
+                          hovertemplate="$%{x}M: %{y} months<extra></extra>")
+        fig.add_histogram(x=tail, xbins=bins, marker_color="#E73F74",
+                          name=f"Worst {1 - alpha:.0%} ({len(tail)} months)",
+                          hovertemplate="$%{x}M: %{y} months<extra></extra>")
+        for x, color, dash, label in [
+            (unhedged_cost.mean(), "#14213D", "solid", f"Expected ${unhedged_cost.mean():.1f}M"),
+            (var, "#E07A1F", "dot", f"VaR ${var:.1f}M"),
+            (cvar(unhedged_cost), "#E73F74", "dash", f"CVaR ${cvar(unhedged_cost):.1f}M"),
+        ]:
+            fig.add_vline(x, line=dict(color=color, width=2, dash=dash), showlegend=True, name=label)
+        fig.update_xaxes(title="Monthly procurement cost, unhedged ($M)")
 
         return mo.vstack(
             [
                 mo.md("## Measuring risk: VaR and CVaR"),
                 mo.hstack(
                     [
-                        fig,
+                        show_chart(fig, 360, barmode="overlay", bargap=0.05,
+                                   legend=dict(x=1, xanchor="right", y=1, font=dict(size=12))),
                         mo.md(
                             rf"""
     Pick a confidence level, here $\alpha = 0.95$, and look at the **worst 5%** of months
@@ -2224,7 +2281,7 @@ def _(mo):
         r"""
     ## Choosing hedges is an LP: a CVaR limit
 
-    **Goal** (a *stochastic program*): buy contracts to minimize expected cost, keeping CVaR $\le$ the risk limit $\bar R$.
+    **Goal:** minimize expected cost, keeping CVaR $\le$ the risk limit $\bar R$: a *two-stage stochastic program* (below).
 
     **Key identity** (Rockafellar–Uryasev): CVaR is itself a minimization over a cost threshold $z$,
     $$
@@ -2243,10 +2300,10 @@ def _(mo):
     \end{aligned}
     $$
 
-    <small>$q_k$: MW bought of contract $k$ (3 contracts) · $C_s(q)$: cost in scenario $s$ ($S = 200$) ·
+    <small>$q_k$: MW of contract $k$ · $C_s(q)$: cost in scenario $s$ ·
     $z$: cost threshold, chosen by the LP (the VaR at the optimum) · $\eta_s$: excess over $z$ · $\alpha = 0.95$ · $\bar R$: risk limit (\$M) ·
-    $\bar q_k$: contract size limit. Every $C_s(q)$ is linear in $q$, so this is an **LP** with
-    $3 + 1 + S = 204$ variables and $S + 1 = 201$ constraints.</small>
+    $C_s(q)$ is linear in $q$, so this is an **LP**:
+    204 variables, 201 constraints. **Two stages:** pick $q$ now; in each scenario, buy or sell the rest at market.</small>
     """
     )
     return
@@ -2362,7 +2419,19 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(terms, cvar, cvar_slider, hedge_lp, hedges, mo, np, pd, plt, unhedged_cost):
+def _(
+    terms,
+    cvar,
+    cvar_slider,
+    hedge_lp,
+    hedges,
+    make_subplots,
+    mo,
+    np,
+    pd,
+    show_chart,
+    unhedged_cost,
+):
     def hedging_slide(cvar_limit):
         solution = hedge_lp(cvar_limit)
         if solution is None:
@@ -2375,34 +2444,41 @@ def _(terms, cvar, cvar_slider, hedge_lp, hedges, mo, np, pd, plt, unhedged_cost
         limits = np.linspace(cvar_slider.start, cvar(unhedged_cost), 25)
         frontier = [s["cost"] for s in map(hedge_lp, limits) if s is not None]
 
-        fig, (hist_ax, front_ax) = plt.subplots(1, 2, figsize=(11, 3.8))
-        bins = np.linspace(min(unhedged_cost.min(), hedged_cost.min()), unhedged_cost.max(), 35)
-        hist_ax.hist(unhedged_cost, bins=bins, color="#C9C2B0", label="Unhedged")
-        hist_ax.hist(hedged_cost, bins=bins, color="#2F6DB5", alpha=0.8,
-                     label=f"Hedged, CVaR ≤ ${cvar_limit:.2f}M")
-        hist_ax.axvline(unhedged_cost.mean(), color="#6A6A6A", lw=2, ls="--",
-                        label=f"Unhedged average ${unhedged_cost.mean():.2f}M")
-        hist_ax.axvline(hedged_cost.mean(), color="#14213D", lw=2, ls="--",
-                        label=f"Hedged average ${hedged_cost.mean():.2f}M")
-        hist_ax.set_xlabel("Monthly procurement cost ($M)")
-        hist_ax.legend(fontsize=8, loc="upper left")
+        fig = make_subplots(1, 2, horizontal_spacing=0.1,
+                            subplot_titles=("", "Efficient frontier: one LP per CVaR limit"))
+        fig.update_annotations(font_size=14)
+        low = min(unhedged_cost.min(), hedged_cost.min())
+        bins = dict(start=low, size=(unhedged_cost.max() - low) / 34 * (1 + 1e-9))  # 34 bins
+        fig.add_histogram(x=unhedged_cost, xbins=bins, marker_color="#C9C2B0", name="Unhedged",
+                          hovertemplate="$%{x}M: %{y} months<extra></extra>", row=1, col=1)
+        fig.add_histogram(x=hedged_cost, xbins=bins, marker_color="#2F6DB5", opacity=0.8,
+                          name=f"Hedged, CVaR ≤ ${cvar_limit:.2f}M",
+                          hovertemplate="$%{x}M: %{y} months<extra></extra>", row=1, col=1)
+        fig.add_vline(unhedged_cost.mean(), line=dict(color="#6A6A6A", width=2, dash="dash"),
+                      showlegend=True, name=f"Unhedged average ${unhedged_cost.mean():.2f}M", row=1, col=1)
+        fig.add_vline(hedged_cost.mean(), line=dict(color="#14213D", width=2, dash="dash"),
+                      showlegend=True, name=f"Hedged average ${hedged_cost.mean():.2f}M", row=1, col=1)
+        fig.update_xaxes(title="Monthly procurement cost ($M)", row=1, col=1)
+        edges = low + bins["size"] * np.arange(35)
+        peak = max(np.histogram(c, bins=edges)[0].max() for c in (unhedged_cost, hedged_cost))
+        fig.update_yaxes(range=[0, 1.7 * peak], row=1, col=1)  # headroom for the legend
 
-        front_ax.plot([cvar(c) for c in frontier], [c.mean() for c in frontier],
-                      "-", color="#8A9BB8", lw=2)
-        front_ax.axvline(cvar_limit, color="#E73F74", lw=1.5, ls="--",
-                         label=f"CVaR limit R\u0304 = \\${cvar_limit:.2f}M")
-        front_ax.plot(cvar(hedged_cost), hedged_cost.mean(), "o", color="#E07A1F", ms=12,
-                      label="Optimal hedge at this limit")
-        front_ax.legend(fontsize=8, loc="upper right")
-        front_ax.plot(cvar(unhedged_cost), unhedged_cost.mean(), "s", color="#3D3D3D")
-        front_ax.annotate("Unhedged", (cvar(unhedged_cost), unhedged_cost.mean()),
-                          textcoords="offset points", xytext=(-60, 8), fontsize=9)
-        front_ax.set_xlabel("CVaR 95% ($M)")
-        front_ax.set_ylabel("Expected cost ($M)")
-        front_ax.set_title("Efficient frontier: one LP per CVaR limit", fontsize=11)
-        for ax in (hist_ax, front_ax):
-            ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+        fig.add_scatter(x=[cvar(c) for c in frontier], y=[c.mean() for c in frontier], mode="lines",
+                        line=dict(color="#8A9BB8", width=2), showlegend=False,
+                        hovertemplate="CVaR &#36;%{x:.2f}M: expected &#36;%{y:.2f}M<extra></extra>", row=1, col=2)
+        fig.add_vline(cvar_limit, line=dict(color="#E73F74", width=1.5, dash="dash"), showlegend=True,
+                      name=f"CVaR limit R\u0304 = ${cvar_limit:.2f}M", legend="legend2", row=1, col=2)
+        fig.add_scatter(x=[cvar(hedged_cost)], y=[hedged_cost.mean()], mode="markers",
+                        marker=dict(color="#E07A1F", size=15), name="Optimal hedge at this limit",
+                        legend="legend2", row=1, col=2)
+        fig.add_scatter(x=[cvar(unhedged_cost)], y=[unhedged_cost.mean()], mode="markers",
+                        marker=dict(color="#3D3D3D", size=10, symbol="square"), showlegend=False,
+                        hovertemplate="Unhedged<extra></extra>", row=1, col=2)
+        fig.add_annotation(x=cvar(unhedged_cost), y=unhedged_cost.mean(), text="Unhedged",
+                           showarrow=False, xanchor="right", yanchor="bottom", xshift=-6, yshift=6,
+                           font=dict(size=12), row=1, col=2)
+        fig.update_xaxes(title="CVaR 95% ($M)", row=1, col=2)
+        fig.update_yaxes(title="Expected cost ($M)", row=1, col=2)
 
         mix = mo.md(
             "| Contract | Buys (MW) | Max MW | Fixed price |\n|:---|:---|:---|:---|\n"
@@ -2413,7 +2489,12 @@ def _(terms, cvar, cvar_slider, hedge_lp, hedges, mo, np, pd, plt, unhedged_cost
             [
                 mo.md("## Risk vs. cost: the hedging frontier"),
                 cvar_slider,
-                mo.hstack([fig, mix], widths=[2.4, 1]),
+                mo.hstack([show_chart(
+                    fig, 340, barmode="overlay", bargap=0.05, margin=dict(l=10, r=10, t=30, b=10),
+                    legend=dict(x=0.01, y=1, font=dict(size=11)),
+                    legend2=dict(x=1, xanchor="right", y=1, font=dict(size=11),
+                                 bgcolor="#F7F5EF", traceorder="normal"),
+                ), mix], widths=[2.4, 1]),
                 mo.md(
                     f"Expected cost **\\${hedged_cost.mean():.2f}M** (unhedged \\${unhedged_cost.mean():.2f}M), "
                     f"CVaR **\\${cvar(hedged_cost):.2f}M** (unhedged \\${cvar(unhedged_cost):.2f}M). "
@@ -2432,13 +2513,14 @@ def _(terms, cvar, cvar_slider, hedge_lp, hedges, mo, np, pd, plt, unhedged_cost
 @app.cell(hide_code=True)
 def _(
     cvar_slider,
+    go,
     hedge_lp,
     hedge_mwh,
     hedges,
     load_mwh,
     mo,
     np,
-    plt,
+    show_chart,
     unhedged_cost,
 ):
     def price_sensitivity_slide(cvar_limit):
@@ -2456,15 +2538,14 @@ def _(
         open_mwh = (load_mwh - hedge_mwh @ q).mean()
         covered = 1 - open_mwh / load_mwh.mean()
 
-        fig, ax = plt.subplots(figsize=(8, 3.8))
-        ax.plot(shifts, unhedged, color="#8A9BB8", lw=2.5, label="Unhedged")
-        ax.plot(shifts, hedged, color="#2F6DB5", lw=2.5, label=f"Hedged, CVaR ≤ ${cvar_limit:.2f}M")
-        ax.axvline(0, color="#C9C2B0", lw=1)
-        ax.set_xlabel("Shift in every hourly price, δλ ($/MWh)")
-        ax.set_ylabel("Expected monthly cost ($M)")
-        ax.legend(fontsize=9)
-        ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+        fig = go.Figure()
+        fig.add_vline(0, line=dict(color="#C9C2B0", width=1))
+        for y, color, name in [(unhedged, "#8A9BB8", "Unhedged"),
+                               (hedged, "#2F6DB5", f"Hedged, CVaR ≤ ${cvar_limit:.2f}M")]:
+            fig.add_scatter(x=shifts, y=y, mode="lines", line=dict(color=color, width=2.5), name=name,
+                            hovertemplate="δλ = %{x:+.0f} &#36;/MWh: &#36;%{y:.2f}M<extra></extra>")
+        fig.update_xaxes(title="Shift in every hourly price, δλ ($/MWh)")
+        fig.update_yaxes(title="Expected monthly cost ($M)")
 
         rows = "\n".join(
             f"    | {name} | {mw:,.0f} MW | {(hedge_mwh[:, k] * mw).mean() / 1e3:,.0f} GWh |"
@@ -2481,7 +2562,7 @@ def _(
                 cvar_slider,
                 mo.hstack(
                     [
-                        fig,
+                        show_chart(fig, 360, legend=dict(x=0.01, y=1)),
                         mo.md(
                             f"""
     | | Size | Energy per month |
@@ -2516,7 +2597,7 @@ def _(terms, cvar_slider, fair_values, hedge_lp, hedges, mo):
         for k, (name, (_, offered, cap)) in enumerate(hedges.items()):
             mw, accept = solution["q"][k], solution["accept_price"][k]
             if mw < 0.5:
-                decision = f"Decline; counter at ≤ \\${accept:.2f}"
+                decision = f"Decline; counter at \\${accept:.2f} or less"
             elif mw > cap - 0.5:
                 decision = f"Take all {cap} MW; would pay up to \\${accept:.2f}"
             else:
@@ -2567,7 +2648,7 @@ def _(
     hedges,
     mo,
     np,
-    plt,
+    show_chart,
 ):
     def bid_curve_slide(contract, cvar_limit):
         k = list(hedges).index(contract)
@@ -2586,18 +2667,18 @@ def _(
         )
         offered_premium = base_prices[k] - fair_values[k]
 
-        fig, ax = plt.subplots(figsize=(9, 3.6))
-        ax.step(premiums, bought, where="post", color="#2F6DB5", lw=2.5, label="Re-solving the LP at each price")
-        ax.axvline(offered_premium, color="#8A9BB8", ls=":", lw=1.5, label="Offered price")
+        fig = go.Figure(go.Scatter(
+            x=premiums, y=bought, mode="lines", line=dict(shape="hv", color="#2F6DB5", width=2.5),
+            name="Re-solving the LP at each price",
+            hovertemplate="+$%{x:.1f}/MWh: %{y:,.0f} MW<extra></extra>",
+        ))
+        fig.add_vline(offered_premium, line=dict(color="#8A9BB8", dash="dot", width=1.5),
+                      showlegend=True, name="Offered price")
         if accept_premium is not None:
-            ax.axvline(accept_premium, color="#E73F74", ls="--", lw=2,
-                       label="Highest acceptable price, from the solved LP")
-        ax.set_xlabel("Fixed price above forecast value ($/MWh)")
-        ax.set_ylabel("MW the LSE buys")
-        ax.set_title(f"LSE’s bid curve for the {contract}", fontsize=11)
-        ax.legend(fontsize=9, loc="upper right")
-        ax.spines[["top", "right"]].set_visible(False)
-        plt.tight_layout()
+            fig.add_vline(accept_premium, line=dict(color="#E73F74", dash="dash", width=2),
+                          showlegend=True, name="Highest acceptable price, from the solved LP")
+        fig.update_xaxes(title="Fixed price above forecast value ($/MWh)")
+        fig.update_yaxes(title="MW the LSE buys")
 
         return mo.vstack(
             [
@@ -2608,7 +2689,9 @@ def _(
                     "acceptable price read off the single solved LP. Gaps mean no mix meets the CVaR limit."
                 ),
                 mo.hstack([contract_dropdown, cvar_slider], justify="start", gap=2),
-                fig,
+                show_chart(fig, 320, margin=dict(l=10, r=10, t=40, b=10),
+                           title=dict(text=f"LSE’s bid curve for the {contract}", font=dict(size=14), x=0.5),
+                           legend=dict(x=1, xanchor="right", y=1)),
                 mo.md(
                     "A seller has its own floor (for a solar developer, its cost of building and running "
                     "the plant). **Any price between the seller’s floor and the LSE’s highest acceptable price "
@@ -2631,13 +2714,14 @@ def _(mo):
 
     - **Uncertainty.** Wind and solar forecasts err. ISOs still run *deterministic* unit commitment and
       cover the error with reserve and ramping products; *stochastic* and *robust* unit commitment, which
-      optimize across scenarios, remain mostly research.
+      optimize across scenarios, remain mostly research. In planning, **two-stage stochastic programs** (invest now,
+      dispatch per scenario) are common: see PyPSA’s [stochastic optimization example](https://docs.pypsa.org/latest/examples/stochastic-optimization/).
     - **Batteries.** State of charge links every hour to the next, and a battery’s real cost is the
       *opportunity cost* of energy it could sell later, so how storage should bid is an open question.
       With round-trip losses an LP may also charge and discharge at once to burn energy when prices are
       negative; models forbid it with a binary or accept it as harmless.
-    - **Pricing nonconvexity.** How to price a MILP is still contested: MISO uses ELMP; PJM, NYISO and SPP
-      adopted fast-start pricing rules; convex hull pricing is the benchmark, but exact versions are hard to compute.
+    - **Pricing nonconvexity.** How to price a MILP is still contested: MISO uses ELMP; PJM, NYISO, ISO-NE and SPP
+      use fast-start pricing rules; convex hull pricing is the benchmark, but exact versions are hard to compute.
 
     <small>**Terms** · **state of charge**: energy stored in a battery · **round-trip losses**: energy lost charging and discharging (10–15%) · **ramping products**: reserves for fast MW changes · **fast-start pricing**: lets quick-start units’ commitment costs set the price · **deterministic / stochastic / robust UC**: one forecast / averaged over scenarios / worst case over a range</small>
     """
@@ -2656,11 +2740,12 @@ def _(mo):
     | Objective | Total production cost (welfare) |
     | Equality constraint | Supply = demand at each bus |
     | Inequality constraints | Generator limits, line limits, reserve requirements |
-    | Dual variable | Price (LMP), congestion cost, reserve price, capacity price |
+    | Dual variable | Price (LMP), congestion, reserve and capacity prices; price of risk |
     | Complementary slackness | Which generator sets the price |
     | Integer variables | On/off commitment decisions |
     | No strong duality (MILP) | Uplift payments and pricing debates |
     | CVaR linearization | Hedging an LSE’s procurement cost against price scenarios |
+    | Reduced cost | Highest price an LSE should accept for a contract |
     """
     )
     return
@@ -2699,7 +2784,7 @@ def _(mo):
     | **FTR / CRR / TCC** | Financial transmission right (CAISO/ERCOT: congestion revenue right; NYISO: transmission congestion contract): pays its holder MW × (LMP at sink − LMP at source), funded by congestion rent. |
     | **Hub / load zone / DLAP** | Price points averaged over many buses: trading hubs, zones where load settles, CAISO’s *default load aggregation points*. |
     | **Day-ahead market** | Cleared the day before, hourly; commits units (MILP). |
-    | **Real-time market** | Cleared every 5 minutes (CAISO/ERCOT call it SCED, security-constrained economic dispatch); adjusts output (LP). |
+    | **Real-time market** | Cleared every 5 minutes (ERCOT, PJM, MISO and SPP call it SCED, security-constrained economic dispatch); adjusts output (LP). |
     | **Settlement** | Paying out: MWh × price, per hour and location. |
     """
     )
