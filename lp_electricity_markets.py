@@ -633,6 +633,7 @@ def _(terms, QUIET, merit, mo, pypsa):
         """Economic dispatch: min Σ c_i p_i  s.t.  Σ p_i = D (λ),  0 ≤ p_i ≤ Pmax_i."""
         n = pypsa.Network()
         n.add("Bus", "grid")                      # one bus → one balance constraint, dual λ
+        # merit: the 5 offers on the merit-order slide, columns unit, capacity (MW), cost ($/MWh)
         for _, g in merit.iterrows():             # one decision variable p_i per generator
             n.add("Generator", g["unit"], bus="grid",
                   p_nom=g["capacity"],            # upper bound Pmax_i (MW)
@@ -641,7 +642,7 @@ def _(terms, QUIET, merit, mo, pypsa):
         n.optimize(solver_name="highs", solver_options=QUIET)  # build the LP, solve with HiGHS
         return n                                  # λ is in n.buses_t.marginal_price
 
-    mo.vstack([mo.md("## Code: economic dispatch as a PyPSA LP (one bus)"), mo.show_code(), terms(r"**PyPSA**: Python power-system modeling library · **HiGHS**: open-source LP/MILP solver · `p_nom` = $\overline P_i$")])
+    mo.vstack([mo.md("## Code: economic dispatch as a PyPSA LP (one bus)"), mo.show_code(), terms(r"**PyPSA**: Python power-system modeling library · **HiGHS**: open-source LP/MILP solver · `p_nom` = $\overline P_i$ · `QUIET`: solver option that hides HiGHS’ log")])
     return (single_bus,)
 
 
@@ -1133,7 +1134,7 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
 @app.cell
 def _(terms, mo, pd, pypsa):
     def western_network(model):
-        """GridSFM/PowerModels JSON (per-unit) -> PyPSA DC-OPF: same LP, just bigger."""
+        """model: the map's grid JSON (per-unit): tables bus, branch, gen, load, dcline (HVDC), each {id: record}."""
         base = model["baseMVA"]  # 100 MVA: multiply per-unit values by this to get MW
         n = pypsa.Network()
 
@@ -1141,12 +1142,12 @@ def _(terms, mo, pd, pypsa):
         n.add("Bus", bus.bus_i.astype(str).tolist(),
               x=bus.lon.values, y=bus.lat.values, v_nom=1.0)  # v_nom=1: x stays per-unit
 
-        br = pd.DataFrame(model["branch"].values()).query("br_status == 1")  # in-service lines
+        br = pd.DataFrame(model["branch"].values()).query("br_status == 1")  # 9,511 in-service lines
         n.add("Line", ("L" + br["index"].astype(str)).tolist(),
               bus0=br.f_bus.astype(str).values, bus1=br.t_bus.astype(str).values,
               x=br.br_x.values, s_nom=br.rate_a.values * base)  # thermal limit, MW
 
-        gen = pd.DataFrame(model["gen"].values()).query("gen_status == 1 and pmax > 0")
+        gen = pd.DataFrame(model["gen"].values()).query("gen_status == 1 and pmax > 0")  # 746 units
         n.add("Generator", ("G" + gen["index"].astype(str)).tolist(),
               bus=gen.gen_bus.astype(str).values, p_nom=gen.pmax.values * base,
               carrier=gen.fuel_type.values,
@@ -1171,6 +1172,7 @@ def _(terms, mo, pd, pypsa):
 def _(mo, terms):
     def path_limits(model):
         """WECC paths (interfaces): net flow on a set of lines between two BAs, within ± a limit."""
+        # model["interface"]: 17 paths, each a record with name, branch_ids, limit (per-unit)
         return [(path["name"],
                  ["L" + b for b in path["branch_ids"]],    # each line in its own from→to direction
                  path["limit"] * model["baseMVA"])         # MW
@@ -1178,6 +1180,7 @@ def _(mo, terms):
 
     def add_path_limits(paths):
         """PyPSA hook: after building the LP, add two custom constraint rows per path."""
+        # paths: path_limits(model), a list of (name, line names, limit in MW)
         def extra_functionality(n, snapshots):
             flow = n.model["Line-s"]                  # the LP's line-flow variables f_ℓ
             for name, lines, limit in paths:
@@ -1746,7 +1749,8 @@ def _(QUIET, mo, np, pypsa):
     }
 
     def unit_commitment(fixed_status=None):
-        """MILP if fixed_status is None; otherwise the LP with binaries fixed."""
+        """MILP if fixed_status is None; otherwise the LP with binaries fixed.
+        fixed_status: the MILP's on/off u_it, a 24 × 3 DataFrame of 0/1 (hour × unit)."""
         n = pypsa.Network()
         n.set_snapshots(hours)                     # 24 periods t, solved together
         n.add("Bus", "grid")
@@ -2355,13 +2359,13 @@ def _(terms, hour_of_day, load_scenarios, mo, np, price_scenarios, solar_scenari
     # Everything the LP needs is linear in q, so precompute per-scenario totals:
     load_mwh = load_scenarios.sum(axis=1)                         # per scenario
     base_cost = (load_scenarios * price_scenarios).sum(axis=1)    # unhedged $ per scenario
-    # per MW of contract k in scenario s: market value of its energy, and its MWh
+    # per MW of contract k in scenario s: market value of its energy, and its MWh (200 × 3)
     hedge_value = np.column_stack([(price_scenarios * s).sum(axis=1) for s in shapes.values()])
     hedge_mwh = np.column_stack(
         [np.broadcast_to(s, price_scenarios.shape).sum(axis=1) for s in shapes.values()]
     )
 
-    mo.vstack([mo.md("## Code (1/2): the fixed-price contracts and their energy per scenario"), mo.show_code(), terms(r"**HE7–HE22**: hour ending 7 through 22, i.e. 6:00–22:00")])
+    mo.vstack([mo.md("## Code (1/2): the fixed-price contracts and their energy per scenario"), mo.md(r"<small>**Inputs** (the scenarios from the risk slides) · `price_scenarios`: 200 × 720 array, scenario × hour of a 30-day month, DLAP price (\$/MWh) · `load_scenarios`: same shape, LSE load (MW) · `solar_scenarios`: same shape, solar output per MW of PPA (≈0–1) · `hour_of_day`: 720 hours’ clock hour, 0–23</small>"), mo.show_code(), terms(r"**HE7–HE22**: hour ending 7 through 22, i.e. 6:00–22:00")])
     return (
         base_cost,
         default_caps,
