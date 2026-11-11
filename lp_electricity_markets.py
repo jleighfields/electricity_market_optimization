@@ -98,7 +98,7 @@ def _(mo):
     | 4 | [**Reserves and capacity**](#/32) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
     | 5 | [**Unit commitment**](#/38) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
     | 6 | [**Portfolio management**](#/45) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/56) | Additional topics, a summary, glossary and sources | — |
+    | 7 | [**Wrap-up**](#/57) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -2089,7 +2089,7 @@ def _(mo):
     $$
     \text{CVaR}_\alpha(C) = \min_z \Big\{\, z + \tfrac{1}{(1-\alpha)S} \textstyle\sum_s \max\big(C_s - z,\ 0\big) \Big\},
     $$
-    where $z$ is a free variable, a guess at the VaR. If $z$ = VaR, only the worst 10 months exceed it, and $z$ + their average excess = their average cost = CVaR; no other $z$ gives less, so the LP picks $z$ itself. $\max(\cdot, 0)$ isn’t linear, so give each scenario a variable $\eta_s$ with
+    where $z$ is a free variable, a guess at the VaR, and the sum is the total excess over $z$ divided by the tail size $(1-\alpha)S = 10$. If $z$ = VaR, exactly the worst 10 months exceed it, so $z$ + their average excess = their average cost = CVaR; no other $z$ gives less (next slide), so the LP picks $z$ itself. $\max(\cdot, 0)$ isn’t linear, so give each scenario a variable $\eta_s$ with
     $\eta_s \ge C_s - z$ and $\eta_s \ge 0$: at the optimum, $\eta_s$ is how far scenario $s$’s cost exceeds $z$.
 
     $$
@@ -2106,6 +2106,33 @@ def _(mo):
     $z$: cost threshold, chosen by the LP (the VaR at the optimum) · $\eta_s$: excess over $z$ · $\alpha = 0.95$ · $\bar R$: risk limit (\$M) ·
     $\bar q_k$: contract size limit. Every $C_s(q)$ is linear in $q$, so this is an **LP** with
     $3 + 1 + S = 204$ variables and $S + 1 = 201$ constraints.</small>
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## Why minimizing over $z$ gives the CVaR: a small example
+
+    Take $S = 20$ scenarios and $\alpha = 0.9$, so the tail is the worst $(1-\alpha)S = 2$. The three highest
+    costs are **25, 30 and 40** (\$M); CVaR = average of the worst two = **35**.
+
+    | Guess $z$ | Scenarios above $z$ | Total excess $\sum_s \max(C_s - z, 0)$ | $\div\,(1-\alpha)S = 2$ | $z$ + that |
+    |:---|:---|:---|:---|:---|
+    | 20 | 25, 30, 40 | 5 + 10 + 20 = 35 | 17.5 | 37.5 |
+    | 25 | 30, 40 | 5 + 15 = 20 | 10 | **35** |
+    | 30 | 40 | 10 | 5 | **35** |
+    | 35 | 40 | 5 | 2.5 | 37.5 |
+
+    - **$z$ too low:** scenarios outside the tail count as excess, so the sum is too big.
+    - **$z$ too high:** $z$ itself overshoots, and the excess no longer makes up the difference.
+    - **$z$ at the tail’s edge** (anywhere from 25 to 30, the VaR): the minimum, **35 = CVaR**. So the VaR is *a* best
+      $z$, though not always the only one.
+
+    In the LP, $\eta_s$ holds each $\max(C_s - z, 0)$, so the CVaR row is this same expression, written linearly.
     """
     )
     return
