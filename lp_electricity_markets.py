@@ -2351,17 +2351,17 @@ def _(terms, cvar_slider, fair_values, hedge_lp, hedges, mo):
     1. **Reduced cost** $\bar c_k$: how much expected cost would rise if we forced in one more MW of contract $k$.
        Positive: not worth buying at this price · zero: bought, and worth exactly its price · negative: we’d buy more if allowed.
     2. **Sensitivity** $\Delta_k$: how much $\bar c_k$ rises when the contract price rises \$1/MWh (the contract’s MWh, weighted for risk).
-    3. **Highest acceptable price**: move the price until $\bar c_k = 0$, so $\;K_k^{\star} = K_k - \bar c_k / \Delta_k$.
+    3. **Highest acceptable price**: start from the offered price $K_k$ and move it until $\bar c_k = 0$: $\;K_k^{\star} = K_k - \bar c_k / \Delta_k$ is the most we’d pay.
     """
                 ),
                 mo.md(
                     f"""
-    | Contract | Forecast value | Offered price | LSE buys (MW) | Accept at or below | Decision |
+    | Contract | Forecast value | Offered price $K_k$ | LSE buys (MW) | Accept at or below $K_k^\star$ | Decision |
     |:---|:---|:---|:---|:---|:---|
 {table}
 
     <small>At CVaR ≤ \\${cvar_limit:.2f}M (frontier slide); prices in \\$/MWh. $\\Delta_k = \\mathbb{{E}}[\\text{{MWh}}_k] + \\sum_s |y_s|\\,\\text{{MWh}}_{{sk}}$,
-    with $y_s$ the duals of the rows $\\eta_s \\ge C_s - z$. Exact for small changes; the next slide re-solves to check.</small>
+    with $y_s$ the dual of scenario $s$’s row $\\eta_s \\ge C_s - z$: the extra weight the risk limit puts on month $s$, nonzero only in the worst months and summing to the dual of the CVaR row (the price of risk). Exact for small changes; the next slide re-solves to check.</small>
     """
                 ),
             ]
