@@ -16,6 +16,7 @@ def _():
     import warnings
     from pathlib import Path
 
+    import anywidget
     import marimo as mo
     import numpy as np
     import pandas as pd
@@ -31,6 +32,27 @@ def _():
     logging.getLogger("linopy").setLevel(logging.ERROR)
 
     QUIET = {"output_flag": False}  # silence the HiGHS log on every solve
+
+    class _ThemeToggle(anywidget.AnyWidget):
+        """A button on the title slide that flips the deck between light and dark mode."""
+        _esm = """
+        function render({ el }) {
+          const btn = document.createElement("button");
+          btn.textContent = "◐ Light / dark";
+          btn.style.cssText = "font-size: 14px; padding: 4px 12px; border-radius: 6px; " +
+            "border: 1px solid #A9B4C8; background: transparent; color: inherit; cursor: pointer";
+          btn.onclick = () => {
+            const dark = !document.body.classList.contains("dark");
+            for (const node of [document.documentElement, document.body]) {
+              node.classList.toggle("dark", dark); node.classList.toggle("dark-theme", dark);
+              node.classList.toggle("light", !dark); node.classList.toggle("light-theme", !dark);
+              node.style.colorScheme = dark ? "dark" : "light";
+            }
+          };
+          el.appendChild(btn);
+        }
+        export default { render };
+        """
 
     def terms(text):
         """A small line that defines the jargon and symbols used on a slide."""
@@ -66,7 +88,7 @@ def _():
         23.0, 25.2, step=0.1, value=23.5, label="CVaR limit ($M)", show_value=True
     )
 
-    mo.md(
+    _title = mo.md(
         """
     # How electricity markets run on linear programming
 
@@ -74,7 +96,8 @@ def _():
 
     Code and data: [github.com/jleighfields/electricity_market_optimization](https://github.com/jleighfields/electricity_market_optimization)
     """
-    ).center()
+    )
+    mo.vstack([_title, mo.ui.anywidget(_ThemeToggle())], align="center")
     return (
         ASSETS,
         QUIET,
@@ -109,7 +132,7 @@ def _(ASSETS, json, mo, plants):
                 mo.md("## Every 5 minutes, hundreds of power plants act as one"),
                 mo.hstack(
                     [
-                        mo.image((ASSETS / "ercot_best_map.png").read_bytes(), width=470),
+                        mo.image((ASSETS / "ercot_best_map.png").read_bytes(), width=470, style={"background": "white", "padding": "4px", "border-radius": "4px"}),
                         mo.md(
                             f"""
     ERCOT alone coordinates **{len(texas):,} power plants** ({texas.capacity_mw.sum() / 1000:.0f} GW), owned by
@@ -1370,8 +1393,8 @@ def _(ASSETS, json, mo, terms):
                 mo.md("## What ISOs publish: an LMP map (ERCOT)"),
                 mo.hstack(
                     [
-                        mo.image((ASSETS / "ercot_best_map.png").read_bytes(), width=520),
-                        mo.image((ASSETS / "ercot_best_legend.png").read_bytes(), height=440),
+                        mo.image((ASSETS / "ercot_best_map.png").read_bytes(), width=520, style={"background": "white", "padding": "4px", "border-radius": "4px"}),
+                        mo.image((ASSETS / "ercot_best_legend.png").read_bytes(), height=440, style={"background": "white", "padding": "4px", "border-radius": "4px"}),
                         mo.md(
                             f"""
     Every dot is a pricing node. Every 5 minutes ERCOT solves the dispatch LP
