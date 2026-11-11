@@ -2755,8 +2755,8 @@ def _(mo):
     | 6 | **Portfolio management** | Market participants solve LPs too: CVaR-limited hedging is a two-stage stochastic program whose duals price risk and cap what to pay for a contract. |
 
     /// admonition | The thread
-    **Optimization runs through every part of the electricity market:** ISOs commit and dispatch plants with MILPs and LPs,
-    the prices they publish are dual variables, participants hedge with LPs, and planners choose what to build with them.
+    <span style="font-size: 0.88em; line-height: 1.45; display: inline-block">**Optimization runs through every part of the electricity market:** ISOs commit and dispatch plants with MILPs and LPs,
+    the prices they publish are dual variables, participants hedge with LPs, and planners choose what to build with them.</span>
     ///
     """
     )
