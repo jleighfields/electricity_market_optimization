@@ -34,7 +34,7 @@ def _():
 
     def terms(text):
         """A small line that defines the jargon and symbols used on a slide."""
-        return mo.md(f"<small>**Terms** · {text}</small>")
+        return mo.md(f"<small>**Terms** — {text}</small>")
 
     def show_chart(fig, height, **layout):
         """Show a Plotly chart styled like the maps, at a fixed height so the slide fits."""
@@ -134,7 +134,7 @@ def _(mo):
     Someone has to decide, every few minutes, **who produces how much**, and that decision is an optimization problem.
     ///
 
-    <small>**Terms** · **frequency**: the grid’s 60 Hz rhythm, which drifts when supply ≠ demand · **trip**: protective equipment disconnects automatically</small>
+    <small>**Terms** — **frequency**: the grid’s 60 Hz rhythm, which drifts when supply ≠ demand &ensp;|&ensp; **trip**: protective equipment disconnects automatically</small>
     """
     )
     return
@@ -152,7 +152,7 @@ def _(mo):
     - **The ISO** (Independent System Operator): runs the market and **solves the optimization**.
       PJM, MISO, ERCOT, CAISO, NYISO, ISO‑NE, SPP.
 
-    <small>**Terms** · **MW**: a rate of power · **MWh**: energy, 1 MW for 1 hour · **\$/MWh**: price of energy · **thermal limit**: most power a line carries before overheating · **RTO** (regional transmission organization): same role as an ISO</small>
+    <small>**Terms** — **MW**: a rate of power &ensp;|&ensp; **MWh**: energy, 1 MW for 1 hour &ensp;|&ensp; **\$/MWh**: price of energy &ensp;|&ensp; **thermal limit**: most power a line carries before overheating &ensp;|&ensp; **RTO** (regional transmission organization): same role as an ISO</small>
     """
     )
     return
@@ -237,7 +237,7 @@ def _(terms, US, base_map, mo, plant_trace, plants, show_map):
             ]
         )
 
-    mo.vstack([fuel_map_slide(), terms(r"**capacity**: a plant’s maximum output (1 GW = 1,000 MW) · **BA** (balancing authority): keeps supply = demand in its area · **EIA-860**: federal survey of every power plant · **PUDL**: open-data project that cleans EIA data")])
+    mo.vstack([fuel_map_slide(), terms(r"**capacity**: a plant’s maximum output (1 GW = 1,000 MW) &ensp;|&ensp; **BA** (balancing authority): keeps supply = demand in its area &ensp;|&ensp; **EIA-860**: federal survey of every power plant &ensp;|&ensp; **PUDL**: open-data project that cleans EIA data")])
     return
 
 
@@ -277,7 +277,7 @@ def _(terms, US, base_map, mo, plant_trace, plants, show_map):
             ]
         )
 
-    mo.vstack([iso_map_slide(), terms(r"**vertically integrated utility**: one company owns plants and wires and runs them without a market · **interconnection**: a synchronized grid (Eastern, Western, Texas) · **WACM, WAUW**: federal (WAPA) balancing areas in the Rockies and northern Plains")])
+    mo.vstack([iso_map_slide(), terms(r"**vertically integrated utility**: one company owns plants and wires and runs them without a market &ensp;|&ensp; **interconnection**: a synchronized grid (Eastern, Western, Texas) &ensp;|&ensp; **WACM, WAUW**: federal (WAPA) balancing areas in the Rockies and northern Plains")])
     return
 
 
@@ -329,7 +329,7 @@ def _(terms, WEST, base_map, mo, plant_trace, plants, show_map):
             ]
         )
 
-    mo.vstack([wecc_map_slide(), terms(r"**dispatch**: setting each running unit’s MW output · **imbalance**: actual supply or demand minus its schedule · **WECC**: the Western Interconnection’s reliability council · **day-ahead market**: clears tomorrow’s hourly schedule today")])
+    mo.vstack([wecc_map_slide(), terms(r"**dispatch**: setting each running unit’s MW output &ensp;|&ensp; **imbalance**: actual supply or demand minus its schedule &ensp;|&ensp; **WECC**: the Western Interconnection’s reliability council &ensp;|&ensp; **day-ahead market**: clears tomorrow’s hourly schedule today")])
     return
 
 
@@ -392,7 +392,7 @@ def _(terms, ASSETS, WEST, base_map, go, json, mo, show_map):
             ]
         )
 
-    mo.vstack([transmission_map_slide(western), terms(r"**bus**: a network node, a substation at one voltage, where lines, generators and loads connect · **kV**: kilovolts · **reactance** $x_\ell$: how strongly a line resists AC flow · **DC-OPF**: the dispatch LP plus network constraints (coming up)")])
+    mo.vstack([transmission_map_slide(western), terms(r"**bus**: a network node, a substation at one voltage, where lines, generators and loads connect &ensp;|&ensp; **kV**: kilovolts &ensp;|&ensp; **reactance** $x_\ell$: how strongly a line resists AC flow &ensp;|&ensp; **DC-OPF**: the dispatch LP plus network constraints (coming up)")])
     return (western,)
 
 
@@ -410,7 +410,7 @@ def _(mo):
 
     Today: the LP inside step 3 first, then the MILP inside step 2.
 
-    <small>**Terms** · **unit commitment**: deciding which units are on · **economic dispatch**: setting the MW of units already on</small>
+    <small>**Terms** — **unit commitment**: deciding which units are on &ensp;|&ensp; **economic dispatch**: setting the MW of units already on</small>
     """
     )
     return
@@ -438,7 +438,7 @@ def _(mo):
     *Demand 820 MW.* Since it is paid the clearing price whatever it bids, a small generator’s best strategy is to
     **bid its true marginal cost**.
 
-    <small>**Terms** · **marginal cost**: cost of one more MWh · **Gas CC**: efficient combined-cycle plant · **peaker**: runs only at peaks · **small**: can’t move the price</small>
+    <small>**Terms** — **marginal cost**: cost of one more MWh &ensp;|&ensp; **Gas CC**: efficient combined-cycle plant &ensp;|&ensp; **peaker**: runs only at peaks &ensp;|&ensp; **small**: can’t move the price</small>
     """
     )
     return
@@ -538,7 +538,7 @@ def _(mo):
     \end{aligned}
     $$
 
-    - $p_i$: output of generator $i$ (MW), the decision · $c_i$: its offer (\$/MWh) · $D$: demand
+    - $p_i$: output of generator $i$ (MW), the decision &ensp;|&ensp; $c_i$: its offer (\$/MWh) &ensp;|&ensp; $D$: demand
     - **Dual variables** (in parentheses, all in \$/MWh): $\lambda$ prices the supply = demand constraint;
       $\overline\mu_i \ge 0$ and $\underline\mu_i \ge 0$ price unit $i$’s maximum and minimum. Each is zero
       unless its constraint binds.
@@ -549,7 +549,7 @@ def _(mo):
 
     Substituting $p_i = \underline P_i + \delta_i$ leaves a **continuous knapsack**, so the greedy merit order solves it exactly.
 
-    <small>**Terms** · **online**: committed (on) this interval · **curtail**: use less wind or solar than the weather allows · $i$ indexes all units (so $\sum_i p_i$ includes wind and solar); $j$ marks the wind and solar units, whose upper limit is $\overline P^{\,\text{avail}}_j$ · $\delta_i \ge 0$: output above the minimum</small>
+    <small>**Terms** — **online**: committed (on) this interval &ensp;|&ensp; **curtail**: use less wind or solar than the weather allows &ensp;|&ensp; $i$ indexes all units (so $\sum_i p_i$ includes wind and solar); $j$ marks the wind and solar units, whose upper limit is $\overline P^{\,\text{avail}}_j$ &ensp;|&ensp; $\delta_i \ge 0$: output above the minimum</small>
     """
     )
     return
@@ -567,7 +567,7 @@ def _(mo):
     | **Complementary slackness** | A unit strictly between $\underline P_i$ and $\overline P_i$ has $c_i = \lambda$, so **the marginal unit sets the price**. At its maximum $c_i \le \lambda$; held at its minimum, $c_i \ge \lambda$. |
     | **Strong duality** | $\lambda D = \sum_i c_i p_i + \sum_i \overline\mu_i \overline P_i - \sum_i \underline\mu_i \underline P_i$: consumer payments = production cost + profit of the cheaper units − losses of units held at their minimum. |
 
-    <small>As on the previous slide: $\lambda$: price, dual of supply = demand ($\sum_i p_i = D$) · $p_i$: output of unit $i$ · $c_i$: its offer · $D$: demand · $\underline P_i, \overline P_i$: its min and max · $\underline\mu_i, \overline\mu_i \ge 0$: duals of those limits</small>
+    <small>As on the previous slide: $\lambda$: price, dual of supply = demand ($\sum_i p_i = D$) &ensp;|&ensp; $p_i$: output of unit $i$ &ensp;|&ensp; $c_i$: its offer &ensp;|&ensp; $D$: demand &ensp;|&ensp; $\underline P_i, \overline P_i$: its min and max &ensp;|&ensp; $\underline\mu_i, \overline\mu_i \ge 0$: duals of those limits</small>
     """
     ).center()
     return
@@ -593,7 +593,7 @@ def _(mo):
     The problem **splits into one problem per generator**: at price $\lambda$, maximize your own profit
     $(\lambda - c_i)\,p_i$ within your own limits.
 
-    <small>$\lambda$: price, the dual of supply = demand ($\sum_i p_i = D$) · $p_i$: output of generator $i$ (MW) · $c_i$: its offer (\$/MWh) · $D$: demand · $L$: the Lagrangian</small>
+    <small>$\lambda$: price, the dual of supply = demand ($\sum_i p_i = D$) &ensp;|&ensp; $p_i$: output of generator $i$ (MW) &ensp;|&ensp; $c_i$: its offer (\$/MWh) &ensp;|&ensp; $D$: demand &ensp;|&ensp; $L$: the Lagrangian</small>
     """
     )
     return
@@ -621,7 +621,7 @@ def _(mo):
     So **paying everyone $\lambda$ makes self-interested generators choose the LP’s optimal dispatch**,
     and supply meets demand: a competitive equilibrium. That is why ISOs settle at the dual.
 
-    <small>$c_i$: unit $i$’s offer (\$/MWh) · $\overline\mu_i, \underline\mu_i$: duals of its max $\overline P_i$ and min $\underline P_i$, as before</small>
+    <small>$c_i$: unit $i$’s offer (\$/MWh) &ensp;|&ensp; $\overline\mu_i, \underline\mu_i$: duals of its max $\overline P_i$ and min $\underline P_i$, as before</small>
     """
     )
     return
@@ -642,7 +642,7 @@ def _(terms, QUIET, merit, mo, pypsa):
         n.optimize(solver_name="highs", solver_options=QUIET)  # build the LP, solve with HiGHS
         return n                                  # λ is in n.buses_t.marginal_price
 
-    mo.vstack([mo.md("## Code: economic dispatch as a PyPSA LP (one bus)"), mo.show_code(), terms(r"**PyPSA**: Python power-system modeling library · **HiGHS**: open-source LP/MILP solver · `p_nom` = $\overline P_i$ · `QUIET`: solver option that hides HiGHS’ log")])
+    mo.vstack([mo.md("## Code: economic dispatch as a PyPSA LP (one bus)"), mo.show_code(), terms(r"**PyPSA**: Python power-system modeling library &ensp;|&ensp; **HiGHS**: open-source LP/MILP solver &ensp;|&ensp; `p_nom` = $\overline P_i$ &ensp;|&ensp; `QUIET`: solver option that hides HiGHS’ log")])
     return (single_bus,)
 
 
@@ -675,7 +675,7 @@ def _(demand_slider, mo, single_bus):
                     justify="space-around",
                     align="center",
                 ),
-                mo.md(r"<small>$\lambda - c_i > 0$: run at max (profitable) · $= 0$: the marginal unit, sets the price · "
+                mo.md(r"<small>$\lambda - c_i > 0$: run at max (profitable) &ensp;|&ensp; $= 0$: the marginal unit, sets the price &ensp;|&ensp; "
                       r"$< 0$: stays off. Exactly the per-generator problems from the Lagrangian.</small>"),
             ]
         )
@@ -706,7 +706,7 @@ def _(mo):
     **The grid is a network** (buses = nodes, lines = arcs), and the node prices will be *locational marginal prices* (LMPs). **The catch:** you
     can’t pick the path. Physics splits the flow, which adds constraints.
 
-    <small>**Terms** · $f_{ij}$: flow on arc $i \to j$ · $b_n > 0$: supply, $< 0$: demand · **totally unimodular**: every square submatrix has determinant 0, ±1 · **arc**: a directed edge</small>
+    <small>**Terms** — $f_{ij}$: flow on arc $i \to j$ &ensp;|&ensp; $b_n > 0$: supply, $< 0$: demand &ensp;|&ensp; **totally unimodular**: every square submatrix has determinant 0, ±1 &ensp;|&ensp; **arc**: a directed edge</small>
     """
     )
     return
@@ -737,7 +737,7 @@ def _(mo):
     - Flows follow linearized physics (reactances $x_\ell$, angles $\theta$), or $f = \text{PTDF}\cdot\text{injections}$. Real AC power
       flow is nonconvex; this “DC” approximation keeps it an LP.
 
-    <small>**Terms** · $n$: bus · $\lambda_n$: LMP at bus $n$ · $G(n)$: generators at bus $n$ · $D_n$: load at bus $n$ · $f_\ell$: MW on line $\ell$, from bus $a(\ell)$ to $b(\ell)$ · $\theta_n$: voltage angle at bus $n$ · $F_\ell$: line limit · $\mu_\ell$: value of 1 MW more line capacity · **PTDF**: MW on a line per MW injected at a bus · **injection**: generation − load at a bus</small>
+    <small>**Terms** — $n$: bus &ensp;|&ensp; $\lambda_n$: LMP at bus $n$ &ensp;|&ensp; $G(n)$: generators at bus $n$ &ensp;|&ensp; $D_n$: load at bus $n$ &ensp;|&ensp; $f_\ell$: MW on line $\ell$, from bus $a(\ell)$ to $b(\ell)$ &ensp;|&ensp; $\theta_n$: voltage angle at bus $n$ &ensp;|&ensp; $F_\ell$: line limit &ensp;|&ensp; $\mu_\ell$: value of 1 MW more line capacity &ensp;|&ensp; **PTDF**: MW on a line per MW injected at a bus &ensp;|&ensp; **injection**: generation − load at a bus</small>
     """
     )
     return
@@ -764,7 +764,7 @@ def _(mo):
     path in inverse proportion to reactance** and can’t be routed. Still an LP, but the constraint
     matrix loses total unimodularity. Next: on two buses (one path, no loop) KVL adds nothing, so both models agree; on a three-bus loop, KVL splits the flow and they don’t.
 
-    <small>**Terms** · **HVDC**: direct-current line whose flow the operator sets · **transport model**: flow-only model without Kirchhoff’s law · **±**: + if the loop follows the line’s direction, − if not · as before: $f_\ell$: MW on line $\ell$ (from bus $a(\ell)$ to $b(\ell)$) · $x_\ell$: reactance · $\theta$: voltage angle · $\lambda_n$: LMP at bus $n$ · $\mu_\ell$: dual of the line limit</small>
+    <small>**Terms** — **HVDC**: direct-current line whose flow the operator sets &ensp;|&ensp; **transport model**: flow-only model without Kirchhoff’s law &ensp;|&ensp; **±**: + if the loop follows the line’s direction, − if not &ensp;|&ensp; as before: $f_\ell$: MW on line $\ell$ (from bus $a(\ell)$ to $b(\ell)$) &ensp;|&ensp; $x_\ell$: reactance &ensp;|&ensp; $\theta$: voltage angle &ensp;|&ensp; $\lambda_n$: LMP at bus $n$ &ensp;|&ensp; $\mu_\ell$: dual of the line limit</small>
     """
     )
     return
@@ -840,7 +840,7 @@ def _(terms, go, limit_slider, mo, show_chart, two_bus):
             ]
         )
 
-    mo.vstack([two_bus_slide(limit_slider.value), terms(r"**congestion rent**: what loads pay minus what generators receive, because prices differ across a full line · **FTR**: financial right to that rent (next slide)")])
+    mo.vstack([two_bus_slide(limit_slider.value), terms(r"**congestion rent**: what loads pay minus what generators receive, because prices differ across a full line &ensp;|&ensp; **FTR**: financial right to that rent (next slide)")])
     return
 
 
@@ -864,7 +864,7 @@ def _(mo):
     pays $X(\lambda_2 - \lambda_1)$ every hour. Rights are allocated or auctioned, mostly to LSEs and other
     transmission customers, so an LSE at bus 2 can **hedge congestion**: here a 100 MW FTR pays it \$3,000.
 
-    <small>**Terms** · $\lambda_1, \lambda_2$: LMPs at buses 1 and 2 · $\mu_\ell$: dual of the line’s limit · **LSE** (load-serving entity): utility or retailer that buys wholesale power for its customers · **hedge**: contract that offsets a price risk · **losses**: energy lost as heat on lines, the third part of an LMP</small>
+    <small>**Terms** — $\lambda_1, \lambda_2$: LMPs at buses 1 and 2 &ensp;|&ensp; $\mu_\ell$: dual of the line’s limit &ensp;|&ensp; **LSE** (load-serving entity): utility or retailer that buys wholesale power for its customers &ensp;|&ensp; **hedge**: contract that offsets a price risk &ensp;|&ensp; **losses**: energy lost as heat on lines, the third part of an LMP</small>
     """
     )
     return
@@ -1015,7 +1015,7 @@ def _(mo, pd, three_bus):
     $\Delta p_1 + \Delta p_2 = 1$ and $\tfrac23 \Delta p_1 + \tfrac13 \Delta p_2 = 0$, so
     $\Delta p_2 = +2$, $\Delta p_1 = -1$, and the cost is $2(50) - 1(20) = \$80$.
 
-    <small>$p_1, p_2$: output of Gen 1 (\$20) and Gen 2 (\$50), MW · $\Delta p_1, \Delta p_2$: change in each to serve the extra MWh</small>
+    <small>$p_1, p_2$: output of Gen 1 (\$20) and Gen 2 (\$50), MW &ensp;|&ensp; $\Delta p_1, \Delta p_2$: change in each to serve the extra MWh</small>
     """
                 ),
             ]
@@ -1127,7 +1127,7 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
             ]
         )
 
-    mo.vstack([negative_price_slide(bus1_load_switch.value), terms(r"**production tax credit**: federal \$/MWh subsidy, so wind runs even at negative prices · **inflexible units**: plants that can’t cheaply turn down or off")])
+    mo.vstack([negative_price_slide(bus1_load_switch.value), terms(r"**production tax credit**: federal \$/MWh subsidy, so wind runs even at negative prices &ensp;|&ensp; **inflexible units**: plants that can’t cheaply turn down or off")])
     return
 
 
@@ -1164,7 +1164,7 @@ def _(terms, mo, pd, pypsa):
               p_nom=hvdc.pmaxf.values * base, p_min_pu=-1)
         return n
 
-    mo.vstack([mo.md("## Code: the same DC-OPF (network flow + Kirchhoff) on a 5,000-bus western grid"), mo.show_code(), terms(r"**per-unit**: values divided by a 100 MVA base (1.0 = 100 MW) · `rate_a`: line rating · `p_min_pu=-1`: an HVDC link can flow both ways")])
+    mo.vstack([mo.md("## Code: the same DC-OPF (network flow + Kirchhoff) on a 5,000-bus western grid"), mo.show_code(), terms(r"**per-unit**: values divided by a 100 MVA base (1.0 = 100 MW) &ensp;|&ensp; `rate_a`: line rating &ensp;|&ensp; `p_min_pu=-1`: an HVDC link can flow both ways")])
     return (western_network,)
 
 
@@ -1189,7 +1189,7 @@ def _(mo, terms):
                 n.model.add_constraints(net >= -limit, name=f"Path-{name}-rev")
         return extra_functionality
 
-    mo.vstack([mo.md("## Code: adding WECC path limits as custom LP constraints"), mo.show_code(), terms(r"**WECC path (interface)**: lines between two areas with a combined flow limit · **path price**: its dual, \$/MWh of transfer · `extra_functionality`: PyPSA hook to add your own LP rows")])
+    mo.vstack([mo.md("## Code: adding WECC path limits as custom LP constraints"), mo.show_code(), terms(r"**WECC path (interface)**: lines between two areas with a combined flow limit &ensp;|&ensp; **path price**: its dual, \$/MWh of transfer &ensp;|&ensp; `extra_functionality`: PyPSA hook to add your own LP rows")])
     return add_path_limits, path_limits
 
 
@@ -1353,7 +1353,7 @@ def _(ASSETS, json, mo, terms):
             ]
         )
 
-    mo.vstack([ercot_map_slide(), terms(r"**SCED**: ERCOT’s 5-minute dispatch LP (security-constrained economic dispatch) · **pricing node**: a bus with a published LMP · **HB_ / LZ_**: hub / load zone")])
+    mo.vstack([ercot_map_slide(), terms(r"**SCED**: ERCOT’s 5-minute dispatch LP (security-constrained economic dispatch) &ensp;|&ensp; **pricing node**: a bus with a published LMP &ensp;|&ensp; **HB_ / LZ_**: hub / load zone")])
     return
 
 
@@ -1410,7 +1410,7 @@ def _(terms, go, mo, pd, show_chart):
             ]
         )
 
-    mo.vstack([ercot_spread_slide(), terms(r"**hub / load zone**: average price over a set of buses / over a region’s load · **settlement point price**: the price used for payment there, over 15 minutes · **ORDC** (operating reserve demand curve): price adder that rises as reserves shrink")])
+    mo.vstack([ercot_spread_slide(), terms(r"**hub / load zone**: average price over a set of buses / over a region’s load &ensp;|&ensp; **settlement point price**: the price used for payment there, over 15 minutes &ensp;|&ensp; **ORDC** (operating reserve demand curve): price adder that rises as reserves shrink")])
     return
 
 
@@ -1437,7 +1437,7 @@ def _(mo):
     Two responses, both in this section: **pay separately for MW** (capacity markets), or let **scarcity prices** run very
     high (ERCOT, energy-only, capped at \$5,000/MWh since 2022).
 
-    <small>**Terms** · **peaker**: plant that runs only at peak demand · **shed load**: controlled blackouts · **resource adequacy (RA)**: enough capacity to meet peak plus a margin</small>
+    <small>**Terms** — **peaker**: plant that runs only at peak demand &ensp;|&ensp; **shed load**: controlled blackouts &ensp;|&ensp; **resource adequacy (RA)**: enough capacity to meet peak plus a margin</small>
     """
     )
     return
@@ -1464,7 +1464,7 @@ def _(mo):
     - **Reserve price = $\sigma$**, the dual of the requirement.
     - **Coupling:** a MW held in reserve can’t produce energy, so when reserves are scarce the energy price rises too.
 
-    <small>**Terms** · $i$: all units (wind and solar serve load but hold no reserve here) · $p_i, c_i$: energy output and offer, $\lambda$: energy price, as before · $\sigma$: reserve price (\$/MW per hour) · $r_i$: MW of reserve from unit $i$ · $b_i$: its reserve offer (\$/MW per hour) · $R^{\text{req}}$: required reserve (MW) · **net load**: load minus wind and solar output · $\overline\mu_i$ here prices the shared limit $p_i + r_i \le \overline P_i$</small>
+    <small>**Terms** — $i$: all units (wind and solar serve load but hold no reserve here) &ensp;|&ensp; $p_i, c_i$: energy output and offer, $\lambda$: energy price, as before &ensp;|&ensp; $\sigma$: reserve price (\$/MW per hour) &ensp;|&ensp; $r_i$: MW of reserve from unit $i$ &ensp;|&ensp; $b_i$: its reserve offer (\$/MW per hour) &ensp;|&ensp; $R^{\text{req}}$: required reserve (MW) &ensp;|&ensp; **net load**: load minus wind and solar output &ensp;|&ensp; $\overline\mu_i$ here prices the shared limit $p_i + r_i \le \overline P_i$</small>
     """
     )
     return
@@ -1491,7 +1491,7 @@ def _(mo):
     - **Below cost:** if $\lambda$ is less than the unit’s cost at its minimum ($\underline\mu_i > 0$), its market revenue
       falls short, and that shortfall is what **uplift** covers.
 
-    <small>**Terms** · **spinning reserve**: spare capacity on a unit that is already running · **deployed**: reserve the ISO actually calls on · as before: $\lambda, \sigma$: energy, reserve prices · $p_i, r_i$: energy, reserve MW · $c_i, b_i$: their offers · $\underline P_i, \overline P_i$: min, max · $\underline\mu_i$: dual of the min · **uplift**: a make-whole payment from the ISO, outside the price, covering that shortfall (more under unit commitment)</small>
+    <small>**Terms** — **spinning reserve**: spare capacity on a unit that is already running &ensp;|&ensp; **deployed**: reserve the ISO actually calls on &ensp;|&ensp; as before: $\lambda, \sigma$: energy, reserve prices &ensp;|&ensp; $p_i, r_i$: energy, reserve MW &ensp;|&ensp; $c_i, b_i$: their offers &ensp;|&ensp; $\underline P_i, \overline P_i$: min, max &ensp;|&ensp; $\underline\mu_i$: dual of the min &ensp;|&ensp; **uplift**: a make-whole payment from the ISO, outside the price, covering that shortfall (more under unit commitment)</small>
     """
     )
     return
@@ -1513,7 +1513,7 @@ def _(mo):
 
     In an **auction**, the **capacity price is a dual**: the shadow price of the reliability requirement. (A bilateral RA price is negotiated; ERCOT has no capacity price.)
 
-    <small>**Terms** · **capacity** (the product): a promise to be available, paid per MW · **CPUC**: California’s utility regulator · **planning reserve margin**: required capacity above forecast peak · **bilateral**: negotiated buyer-to-seller, not cleared by the ISO · **offer obligation**: RA capacity must be offered into CAISO · **backstop procurement**: CAISO buys any shortfall · **scarcity pricing**: very high prices when reserves run short</small>
+    <small>**Terms** — **capacity** (the product): a promise to be available, paid per MW &ensp;|&ensp; **CPUC**: California’s utility regulator &ensp;|&ensp; **planning reserve margin**: required capacity above forecast peak &ensp;|&ensp; **bilateral**: negotiated buyer-to-seller, not cleared by the ISO &ensp;|&ensp; **offer obligation**: RA capacity must be offered into CAISO &ensp;|&ensp; **backstop procurement**: CAISO buys any shortfall &ensp;|&ensp; **scarcity pricing**: very high prices when reserves run short</small>
     """
     )
     return
@@ -1538,7 +1538,7 @@ def _(mo):
     - In the LP, each demand-curve step $m$ is a variable $d_m$ (MW bought) worth $w_m$ (\$/MW-day), so the auction **maximizes welfare**:
       the area under the demand curve minus the cost of the cleared offers.
 
-    <small>**Terms** · **\$/MW-day**: price to keep 1 MW available for one day · **LOLE** (loss-of-load expectation): expected days per year with too little supply; “one day in ten years” = 0.1 · **CT**: combustion turbine, a simple gas peaker</small>
+    <small>**Terms** — **\$/MW-day**: price to keep 1 MW available for one day &ensp;|&ensp; **LOLE** (loss-of-load expectation): expected days per year with too little supply; “one day in ten years” = 0.1 &ensp;|&ensp; **CT**: combustion turbine, a simple gas peaker</small>
     """
     )
     return
@@ -1568,7 +1568,7 @@ def _(terms, linprog, mo, np, pd):
         price = res.eqlin.marginals[0]  # dual of the balance row: the clearing price π
         return offers, demand, price
 
-    mo.vstack([mo.md("## Code: clearing a capacity auction with `scipy.optimize.linprog`"), mo.show_code(), terms(r"**demand response**: customers paid to cut use on request · $x_i$, $c_i$: MW cleared from offer $i$ and its price · $d_m$, $w_m$: MW bought on demand step $m$ and its value · $\pi$: clearing price (\$/MW-day)")])
+    mo.vstack([mo.md("## Code: clearing a capacity auction with `scipy.optimize.linprog`"), mo.show_code(), terms(r"**demand response**: customers paid to cut use on request &ensp;|&ensp; $x_i$, $c_i$: MW cleared from offer $i$ and its price &ensp;|&ensp; $d_m$, $w_m$: MW bought on demand step $m$ and its value &ensp;|&ensp; $\pi$: clearing price (\$/MW-day)")])
     return (clear_capacity_auction,)
 
 
@@ -1641,7 +1641,7 @@ def _(mo):
 
     **This section:** why the day-ahead market needs binaries, a 24-hour UC in PyPSA, and the catch: **a MILP has no duals**, so where does the price come from?
 
-    <small>**Terms** · **LP relaxation**: the MILP with integrality dropped; its optimum bounds the MILP’s · **NP-hard**: no known method that is fast on every instance</small>
+    <small>**Terms** — **LP relaxation**: the MILP with integrality dropped; its optimum bounds the MILP’s &ensp;|&ensp; **NP-hard**: no known method that is fast on every instance</small>
     """
     )
     return
@@ -1706,7 +1706,7 @@ def _(terms, make_subplots, mo, show_chart):
             ]
         )
 
-    mo.vstack([why_milp_slide(), terms(r"$u$: 1 = on, 0 = off · $p$: output (MW) · $\underline P, \overline P$: min, max when on · **startup / no-load cost**: cost to start / to stay on, per hour · **fast-start**: starts within an hour")])
+    mo.vstack([why_milp_slide(), terms(r"$u$: 1 = on, 0 = off &ensp;|&ensp; $p$: output (MW) &ensp;|&ensp; $\underline P, \overline P$: min, max when on &ensp;|&ensp; **startup / no-load cost**: cost to start / to stay on, per hour &ensp;|&ensp; **fast-start**: starts within an hour")])
     return
 
 
@@ -1728,10 +1728,10 @@ def _(mo):
     \end{aligned}
     $$
 
-    - $u_{it} = 1$ if unit $i$ is **on** in hour $t$ · $v_{it} = 1$ if it **starts up** · $c^{\text{SU}}_i$ = startup cost
+    - $u_{it} = 1$ if unit $i$ is **on** in hour $t$ &ensp;|&ensp; $v_{it} = 1$ if it **starts up** &ensp;|&ensp; $c^{\text{SU}}_i$ = startup cost
     - Multi-period (24–36 hours), coupled through time by startups, min up/down times and ramp limits.
 
-    <small>**Terms** · $i$: all units, $j$: wind and solar · $\overline P^{\,\text{avail}}_{jt}$: forecast wind/solar output · **curtail**: produce less than that, e.g., when prices go negative or a line is full · $t$: hour · $p_{it}$: output (MW) · $c_i$: offer (\$/MWh) · $D_t$: demand in hour $t$ · $UT_i$: unit $i$’s minimum up time (hours) · $\tau$: the recent hours · **ramp limit**: most MW a unit can change per hour · no-load cost and minimum down time omitted for brevity</small>
+    <small>**Terms** — $i$: all units, $j$: wind and solar &ensp;|&ensp; $\overline P^{\,\text{avail}}_{jt}$: forecast wind/solar output &ensp;|&ensp; **curtail**: produce less than that, e.g., when prices go negative or a line is full &ensp;|&ensp; $t$: hour &ensp;|&ensp; $p_{it}$: output (MW) &ensp;|&ensp; $c_i$: offer (\$/MWh) &ensp;|&ensp; $D_t$: demand in hour $t$ &ensp;|&ensp; $UT_i$: unit $i$’s minimum up time (hours) &ensp;|&ensp; $\tau$: the recent hours &ensp;|&ensp; **ramp limit**: most MW a unit can change per hour &ensp;|&ensp; no-load cost and minimum down time omitted for brevity</small>
     """
     )
     return
@@ -1878,7 +1878,7 @@ def _(terms, go, itertools, mo, np, show_chart, units):
             ]
         )
 
-    mo.vstack([why_no_duals_slide(), terms(r"$C(D)$: least cost of serving $D$ MW for one hour · **uplift**: side payment for costs the market price doesn’t cover (next slide)")])
+    mo.vstack([why_no_duals_slide(), terms(r"$C(D)$: least cost of serving $D$ MW for one hour &ensp;|&ensp; **uplift**: side payment for costs the market price doesn’t cover (next slide)")])
     return
 
 
@@ -1959,7 +1959,7 @@ def _(mo):
     US ISOs replaced Lagrangian relaxation with commercial MILP solvers in the 2000s–2010s (PJM first, around 2005),
     and FERC has credited the switch with large production-cost savings.
 
-    <small>**Terms** · **FERC**: federal regulator of wholesale markets · **production cost**: total fuel, startup and operating cost of serving load</small>
+    <small>**Terms** — **FERC**: federal regulator of wholesale markets &ensp;|&ensp; **production cost**: total fuel, startup and operating cost of serving load</small>
     """
     )
     return
@@ -2027,7 +2027,7 @@ def _(mo):
       the decision across **scenarios** of the future. Optimizing expected cost and CVaR over scenarios is a
       **(risk-averse) stochastic program**; scenarios turn the expectation and the CVaR into sums.
 
-    <small>**Terms** · $w_k$: share in asset $k$ · $m$: expected returns · $\Sigma$: covariance matrix · **CVaR**: conditional value at risk · **scenario**: one possible future (here a month of prices and load)</small>
+    <small>**Terms** — $w_k$: share in asset $k$ &ensp;|&ensp; $m$: expected returns &ensp;|&ensp; $\Sigma$: covariance matrix &ensp;|&ensp; **CVaR**: conditional value at risk &ensp;|&ensp; **scenario**: one possible future (here a month of prices and load)</small>
     """
     )
     return
@@ -2106,7 +2106,7 @@ def _(
             ]
         )
 
-    mo.vstack([lse_risk_slide(), terms(r"**DLAP** (default load aggregation point): CAISO’s utility-area average price that load pays · **retail rate**: fixed price charged to end customers · **fundamentals model**: forecast by simulating dispatch · **forward curve**: traded prices for future delivery")])
+    mo.vstack([lse_risk_slide(), terms(r"**DLAP** (default load aggregation point): CAISO’s utility-area average price that load pays &ensp;|&ensp; **retail rate**: fixed price charged to end customers &ensp;|&ensp; **fundamentals model**: forecast by simulating dispatch &ensp;|&ensp; **forward curve**: traded prices for future delivery")])
     return cvar, unhedged_cost
 
 
@@ -2221,7 +2221,7 @@ def _(mo):
     $$
 
 
-    <small>**Terms** · **forward**: fixed MW at a fixed price, delivered later · **PPA**: power purchase agreement, a plant’s output at a fixed price · **premium** (+\$1.00 / +\$1.50): seller’s charge above forecast value for taking price risk (without it the LP hedges to the max) · **forecast** average / on-peak / solar-weighted: mean price over delivered hours</small>
+    <small>**Terms** — **forward**: fixed MW at a fixed price, delivered later &ensp;|&ensp; **PPA**: power purchase agreement, a plant’s output at a fixed price &ensp;|&ensp; **premium** (+\$1.00 / +\$1.50): seller’s charge above forecast value for taking price risk (without it the LP hedges to the max) &ensp;|&ensp; **forecast** average / on-peak / solar-weighted: mean price over delivered hours</small>
     """
     )
     return
@@ -2304,8 +2304,8 @@ def _(mo):
     \end{aligned}
     $$
 
-    <small>$q_k$: MW of contract $k$ · $C_s(q)$: cost in scenario $s$ ·
-    $z$: cost threshold, chosen by the LP (the VaR at the optimum) · $\eta_s$: excess over $z$ · $\alpha = 0.95$ · $\bar R$: risk limit (\$M) ·
+    <small>$q_k$: MW of contract $k$ &ensp;|&ensp; $C_s(q)$: cost in scenario $s$ &ensp;|&ensp;
+    $z$: cost threshold, chosen by the LP (the VaR at the optimum) &ensp;|&ensp; $\eta_s$: excess over $z$ &ensp;|&ensp; $\alpha = 0.95$ &ensp;|&ensp; $\bar R$: risk limit (\$M) &ensp;|&ensp;
     $C_s(q)$ is linear in $q$, so this is an **LP**:
     204 variables, 201 constraints. **Two stages:** pick $q$ now; in each scenario, buy or sell the rest at market.</small>
     """
@@ -2365,7 +2365,7 @@ def _(terms, hour_of_day, load_scenarios, mo, np, price_scenarios, solar_scenari
         [np.broadcast_to(s, price_scenarios.shape).sum(axis=1) for s in shapes.values()]
     )
 
-    mo.vstack([mo.md("## Code (1/2): the fixed-price contracts and their energy per scenario"), mo.md(r"<small>**Inputs** (the scenarios from the risk slides) · `price_scenarios`: 200 × 720 array, scenario × hour of a 30-day month, DLAP price (\$/MWh) · `load_scenarios`: same shape, LSE load (MW) · `solar_scenarios`: same shape, solar output per MW of PPA (≈0–1) · `hour_of_day`: 720 hours’ clock hour, 0–23</small>"), mo.show_code(), terms(r"**HE7–HE22**: hour ending 7 through 22, i.e. 6:00–22:00")])
+    mo.vstack([mo.md("## Code (1/2): the fixed-price contracts and their energy per scenario"), mo.md(r"<small>**Inputs** (the scenarios from the risk slides) &ensp;|&ensp; `price_scenarios`: 200 × 720 array, scenario × hour of a 30-day month, DLAP price (\$/MWh) &ensp;|&ensp; `load_scenarios`: same shape, LSE load (MW) &ensp;|&ensp; `solar_scenarios`: same shape, solar output per MW of PPA (≈0–1) &ensp;|&ensp; `hour_of_day`: 720 hours’ clock hour, 0–23</small>"), mo.show_code(), terms(r"**HE7–HE22**: hour ending 7 through 22, i.e. 6:00–22:00")])
     return (
         base_cost,
         default_caps,
@@ -2510,7 +2510,7 @@ def _(
             ]
         )
 
-    mo.vstack([hedging_slide(cvar_slider.value), terms(r"$\bar R$: the CVaR limit (slider) · **fixed price** $K_k$: forecast value + premium · **price of risk**: dual of the CVaR row · **efficient frontier**: lowest expected cost at each risk level · **tail risk**: how bad the very bad outcomes are")])
+    mo.vstack([hedging_slide(cvar_slider.value), terms(r"$\bar R$: the CVaR limit (slider) &ensp;|&ensp; **fixed price** $K_k$: forecast value + premium &ensp;|&ensp; **price of risk**: dual of the CVaR row &ensp;|&ensp; **efficient frontier**: lowest expected cost at each risk level &ensp;|&ensp; **tail risk**: how bad the very bad outcomes are")])
     return
 
 
@@ -2578,7 +2578,7 @@ def _(
     Unhedged, each \\$1/MWh move in prices changes cost by **\\${load_mwh.mean() / 1e6:.2f}M**.
     Hedged, by **\\${open_mwh / 1e6:.2f}M**: the hedges fix the price on **{covered:.0%}** of the energy.
 
-    <small>**GWh**: 1,000 MWh · **Size**: MW bought of each contract at this CVaR limit</small>
+    <small>**GWh**: 1,000 MWh &ensp;|&ensp; **Size**: MW bought of each contract at this CVaR limit</small>
     """
                         ),
                     ],
@@ -2621,7 +2621,7 @@ def _(terms, cvar_slider, fair_values, hedge_lp, hedges, mo):
     The solved LP answers this directly, in three steps:
 
     1. **Reduced cost** $\bar c_k$: how much expected cost would rise if we forced in one more MW of contract $k$.
-       Positive: not worth buying at this price · zero: bought, and worth exactly its price · negative: we’d buy more if allowed.
+       Positive: not worth buying at this price &ensp;|&ensp; zero: bought, and worth exactly its price &ensp;|&ensp; negative: we’d buy more if allowed.
     2. **Sensitivity** $\Delta_k$: how much $\bar c_k$ rises when the contract price rises \$1/MWh (the contract’s MWh, weighted for risk).
     3. **Highest acceptable price**: start from the offered price $K_k$ and move it until $\bar c_k = 0$: $\;K_k^{\star} = K_k - \bar c_k / \Delta_k$ is the most we’d pay.
     """
@@ -2639,7 +2639,7 @@ def _(terms, cvar_slider, fair_values, hedge_lp, hedges, mo):
             ]
         )
 
-    mo.vstack([acceptance_slide(cvar_slider.value), terms(r"$\mathbb{E}$: average over the 200 scenarios · $\text{MWh}_k$: energy 1 MW of contract $k$ delivers · **forecast value**: mean price over those MWh · **counter**: offer a lower price")])
+    mo.vstack([acceptance_slide(cvar_slider.value), terms(r"$\mathbb{E}$: average over the 200 scenarios &ensp;|&ensp; $\text{MWh}_k$: energy 1 MW of contract $k$ delivers &ensp;|&ensp; **forecast value**: mean price over those MWh &ensp;|&ensp; **counter**: offer a lower price")])
     return
 
 
@@ -2727,7 +2727,7 @@ def _(mo):
     - **Pricing nonconvexity.** How to price a MILP is still contested: MISO uses ELMP; PJM, NYISO, ISO-NE and SPP
       use fast-start pricing rules; convex hull pricing is the benchmark, but exact versions are hard to compute.
 
-    <small>**Terms** · **state of charge**: energy stored in a battery · **round-trip losses**: energy lost charging and discharging (10–15%) · **ramping products**: reserves for fast MW changes · **fast-start pricing**: lets quick-start units’ commitment costs set the price · **deterministic / stochastic / robust UC**: one forecast / averaged over scenarios / worst case over a range</small>
+    <small>**Terms** — **state of charge**: energy stored in a battery &ensp;|&ensp; **round-trip losses**: energy lost charging and discharging (10–15%) &ensp;|&ensp; **ramping products**: reserves for fast MW changes &ensp;|&ensp; **fast-start pricing**: lets quick-start units’ commitment costs set the price &ensp;|&ensp; **deterministic / stochastic / robust UC**: one forecast / averaged over scenarios / worst case over a range</small>
     """
     )
     return
@@ -3001,7 +3001,7 @@ def _(mo):
 
     **This deck:** notebook, data and build scripts at [github.com/jleighfields/electricity_market_optimization](https://github.com/jleighfields/electricity_market_optimization).
 
-    **Further reading:** J. A. Taylor, *Convex Optimization of Power Systems*, Cambridge University Press, 2015 ·
+    **Further reading:** J. A. Taylor, *Convex Optimization of Power Systems*, Cambridge University Press, 2015 &ensp;|&ensp;
     D. S. Kirschen and G. Strbac, *Fundamentals of Power System Economics*, 2nd ed., Wiley, 2019.
     """
     )
