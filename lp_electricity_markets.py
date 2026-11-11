@@ -582,7 +582,7 @@ def _(mo):
     **1. It is the marginal cost of demand.** By LP sensitivity,
     $\lambda = \dfrac{\partial\, \text{(optimal cost)}}{\partial D}$: what one more MWh costs the system.
 
-    **2. It makes the dispatch self-enforcing.** The ISO solves centrally, but at price $\lambda$ its schedule is
+    **2. It makes the dispatch self-enforcing.**\* The ISO solves centrally, but at price $\lambda$ its schedule is
     each generator’s own profit-maximizing choice, so no one wants to deviate. Relax the balance constraint with $\lambda$:
 
     $$
@@ -594,6 +594,8 @@ def _(mo):
     $(\lambda - c_i)\,p_i$ within your own limits.
 
     <small>$\lambda$: price, the dual of supply = demand ($\sum_i p_i = D$) &ensp;|&ensp; $p_i$: output of generator $i$ (MW) &ensp;|&ensp; $c_i$: its offer (\$/MWh) &ensp;|&ensp; $D$: demand &ensp;|&ensp; $L$: the Lagrangian</small>
+
+    <small>\* Point 2 assumes a **competitive market**: each generator is a *price-taker* that can’t move $\lambda$ by changing its offer. A supplier with **market power** could raise $\lambda$ by withholding output or offering above cost, which is why ISOs mitigate offers.</small>
     """
     )
     return
