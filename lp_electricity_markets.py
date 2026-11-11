@@ -94,11 +94,11 @@ def _(mo):
     |:---|:---|:---|:---|
     | 1 | [**Electricity markets 101**](#/2) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
     | 2 | [**Economic dispatch**](#/10) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/17) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves and capacity**](#/32) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
-    | 5 | [**Unit commitment**](#/38) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/45) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/57) | Additional topics, a summary, glossary and sources | — |
+    | 3 | [**Adding the network**](#/18) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves and capacity**](#/34) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
+    | 5 | [**Unit commitment**](#/41) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/49) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/62) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -431,6 +431,32 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+
+    ## Economic dispatch: who produces how much?
+
+    Every 5 minutes (real time), and for each hour of tomorrow (day ahead), the ISO answers one question:
+
+    /// admonition | The economic dispatch problem
+    Which generators should produce how much, so that **supply = demand** at the **lowest total cost**?
+    ///
+
+    | Inputs | Output |
+    |:---|:---|
+    | Each generator’s offers (*“up to X MW at \$Y/MWh”*) and limits | A MW schedule for every unit |
+    | The demand forecast | One price that every unit is paid |
+
+    Before markets, a utility ran the same calculation on its own plants’ costs; an ISO runs it on offers.
+
+    **This section:** the intuition first (the *merit order*), then the LP, then why the market price is its **dual**.
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
 def _(demand_slider, mo, pd, plt):
     merit = pd.DataFrame(
         {
@@ -641,6 +667,34 @@ def _(demand_slider, mo, single_bus):
         )
 
     single_bus_slide(demand_slider.value)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+
+    ## Background: what is a network flow problem?
+
+    A classic LP family. A directed graph: each node $n$ has a supply or demand $b_n$, each arc has a cost $c_{ij}$
+    per unit shipped and a capacity $u_{ij}$. Ship at least cost:
+    $$
+    \min \sum_{(i,j)} c_{ij} f_{ij} \quad \text{s.t.} \quad \underbrace{\textstyle\sum_j f_{nj} - \sum_j f_{jn} = b_n}_{\text{flow out − flow in}}\ \ \forall n, \qquad 0 \le f_{ij} \le u_{ij}
+    $$
+
+    - **Examples:** factories to warehouses (the transportation problem), pipelines, traffic, data networks.
+    - **Special structure:** the constraint matrix is the node–arc *incidence matrix*, which is totally unimodular, so
+      integer supplies and capacities give integer optimal flows, and the **network simplex** method is very fast.
+    - **Duals:** each node’s conservation row has a dual, a *node price* (potential). Shipping from $i$ to $j$
+      is worth the price difference, and a full arc earns the gap.
+
+    **The grid is a network** (buses = nodes, lines = arcs), and the node prices will be the LMPs. **The catch:** you
+    can’t pick the path. Physics splits the flow, which adds constraints.
+
+    <small>**Terms** · $f_{ij}$: flow on arc $i \to j$ · $b_n > 0$: supply, $< 0$: demand · **totally unimodular**: every square submatrix has determinant 0, ±1 · **arc**: a directed edge</small>
+    """
+    )
     return
 
 
@@ -1209,7 +1263,7 @@ def _(terms,
         path_list = "; ".join(f"{row.path} (\\${row.price:.0f})" for row in binding_paths.itertuples())
         return mo.vstack(
             [
-                mo.md("## Western LMPs from our PyPSA DC-OPF"),
+                mo.md("## Western LMPs from our PyPSA DC-OPF (simulated, not real prices)"),
                 mo.hstack(
                     [
                         show_map(fig),
@@ -1232,7 +1286,8 @@ def _(terms,
                 ),
                 mo.md(
                     f"<small>Path duals (\\$/MWh of transfer): {path_list}. GridSFM western model, 4 pm 15 Jul 2024, "
-                    "11 BAs; linear costs, no minimum outputs; two-sided path limits from GridSFM. Illustrative.</small>"
+                    "11 BAs; estimated line data and generator costs, one hour, no unit commitment. Shows how congestion splits prices; "
+                    "<b>not representative of actual western LMPs</b>.</small>"
                 ),
             ]
         )
@@ -1337,6 +1392,35 @@ def _(terms, mo, pd, plt):
         )
 
     mo.vstack([ercot_spread_slide(), terms(r"**hub / load zone**: average price over a set of buses / over a region’s load · **settlement point price**: the price used for payment there, over 15 minutes · **ORDC** (operating reserve demand curve): price adder that rises as reserves shrink")])
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+
+    ## Why reserves and capacity? Reliability needs MW, not just MWh
+
+    The energy LP buys **MWh** for the next interval. Two reliability questions remain:
+
+    | Horizon | Question | Market answer |
+    |:---|:---|:---|
+    | **Minutes** | If the largest plant trips, or wind drops, who covers it right now? | **Operating reserves**: MW held back, co-optimized with energy |
+    | **Years** | Will enough plants exist for the hottest hour of a future year? | **Resource adequacy**: capacity markets or RA requirements |
+
+    **Why energy prices alone may not get plants built (the *missing money* problem):**
+    - A **peaker** may run only a few hundred hours a year, and must earn back its fixed costs in those hours.
+    - **Price and offer caps** clip exactly those scarcity hours (FERC caps eastern-ISO offers at \$1,000/MWh, or verified cost up to \$2,000).
+    - **Demand barely responds**, so in a true shortage operators shed load instead of raising the price. Reliability is
+      shared by everyone, so no single buyer pays for enough of it.
+
+    Two responses, both in this section: **pay separately for MW** (capacity markets), or let **scarcity prices** run very
+    high (ERCOT, energy-only, capped at \$5,000/MWh since 2022).
+
+    <small>**Terms** · **peaker**: plant that runs only at peak demand · **shed load**: controlled blackouts · **resource adequacy (RA)**: enough capacity to meet peak plus a margin</small>
+    """
+    )
     return
 
 
@@ -1516,6 +1600,33 @@ def _(clear_capacity_auction, mo, np, plt, requirement_slider):
         )
 
     capacity_auction_slide(requirement_slider.value)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+
+    ## Unit commitment: deciding who is on
+
+    So far, *which* units are running was given and the LP only chose their MW. **Unit commitment** decides on/off
+    for each unit and each hour of tomorrow, and on/off is a yes/no decision.
+
+    **Mixed-integer linear programming (MILP):** an LP in which some variables must be integers (here 0 or 1).
+    - The feasible set is no longer convex, so the simplex method alone can’t solve it.
+    - **Branch and bound:** solve the LP *relaxation* (let $0 \le u \le 1$); if some $u$ is fractional, split into
+      $u = 0$ and $u = 1$ subproblems; prune any branch whose LP bound is worse than the best solution found.
+      **Cutting planes** tighten the relaxation along the way.
+    - NP-hard in general, yet modern solvers (Gurobi, CPLEX, HiGHS) solve ISO-scale day-ahead problems within the
+      market’s time window. ISOs replaced older Lagrangian-relaxation heuristics with MILP in the 2000s and 2010s
+      (PJM first, around 2005).
+
+    **This section:** why the day-ahead market needs binaries, a 24-hour UC in PyPSA, and the catch: **a MILP has no duals**, so where does the price come from?
+
+    <small>**Terms** · **LP relaxation**: the MILP with integrality dropped; its optimum bounds the MILP’s · **NP-hard**: no known method that is fast on every instance · **Lagrangian relaxation**: move hard constraints into the objective with multipliers</small>
+    """
+    )
     return
 
 
@@ -1872,6 +1983,34 @@ def _(ASSETS, np, pd):
 
 
 @app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+
+    ## Background: what is portfolio optimization?
+
+    **Markowitz (1952):** choose how much of each asset to hold, trading **expected return** against **risk**.
+    Assets that don’t move together offset each other: *diversification*.
+    $$
+    \min_w\ w^\top \Sigma\, w \quad \text{s.t.} \quad \mu^\top w \ge \text{target}, \quad \textstyle\sum_k w_k = 1
+    $$
+    Measuring risk by variance makes this a **quadratic program**.
+
+    - **Which risk?** Variance penalizes good surprises as much as bad ones. **CVaR** (Rockafellar & Uryasev, 2000) is
+      the average of the worst outcomes, and with scenarios it becomes an **LP**.
+    - **For an LSE:** the assets are **contracts** (forwards, PPAs), the “return” is a **cost**, and the risk is
+      months of high prices it can’t pass on to customers.
+    - **Stochastic programming:** decide *now* (MW of each contract) before the uncertainty is revealed, then score
+      the decision across **scenarios** of the future. Optimizing expected cost and CVaR over scenarios is a
+      **(risk-averse) stochastic program**; scenarios turn the expectation and the CVaR into sums.
+
+    <small>**Terms** · $w_k$: share in asset $k$ · $\mu$: expected returns · $\Sigma$: covariance matrix · **CVaR**: conditional value at risk · **scenario**: one possible future (here a month of prices and load)</small>
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
 def _(terms, history_days, hour_of_day, load_scenarios, mo, np, plt, price_scenarios):
     unhedged_cost = (load_scenarios * price_scenarios).sum(axis=1) / 1e6  # $M per month
 
@@ -2085,7 +2224,7 @@ def _(mo):
         r"""
     ## Choosing hedges is an LP: a CVaR limit
 
-    **Goal:** buy contracts to minimize expected cost, while keeping CVaR at or below the risk limit $\bar R$.
+    **Goal** (a *stochastic program*): buy contracts to minimize expected cost, keeping CVaR $\le$ the risk limit $\bar R$.
 
     **Key identity** (Rockafellar–Uryasev): CVaR is itself a minimization over a cost threshold $z$,
     $$
@@ -2726,6 +2865,7 @@ def _(mo):
     | **Contract price / premium** | The fixed price paid / how much it exceeds the forecast market value. |
     | **PPA** | Power purchase agreement: buying a specific plant’s output, e.g., a solar farm’s. |
     | **Scenario / bootstrap** | One possible future / building scenarios by resampling historical days. |
+    | **Stochastic programming** | Decide now, then score the decision across scenarios of the future (expected cost, CVaR). Our hedging LP is one. |
     | **VaR / CVaR** | Value-at-risk: the cost exceeded only $(1-\alpha)$ of the time / conditional VaR: the average cost in that worst $(1-\alpha)$. |
     | **Efficient frontier** | Best expected cost for each risk level. |
     """

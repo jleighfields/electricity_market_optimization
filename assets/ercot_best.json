@@ -1,15 +1,16 @@
 {
-  "interval": "11/10/2026 interval ending 1930",
-  "spread": 86.00999999999999,
+  "interval": "11/11/2026 interval ending 0445",
+  "spread": 104.55000000000001,
+  "nodal_spread": 158.3,
+  "node_min": -38.21,
+  "node_max": 191.65,
   "low": [
-    "LZ_HOUSTON",
-    61.65
+    "HB_PAN",
+    17.74
   ],
   "high": [
-    "LZ_RAYBN",
-    147.66
+    "LZ_WEST",
+    122.29
   ],
-  "captured": "2026-11-10 18:36",
-  "nodal_spread": 100.0,
-  "nodal_spread_note": "estimated; capture predates nodal tracking"
+  "captured": "2026-11-11 03:56"
 }
