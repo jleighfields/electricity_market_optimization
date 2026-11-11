@@ -2739,7 +2739,30 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
-    ## Summary: the LP–market dictionary
+    ## Summary: what we covered
+
+    | | Section | Takeaway |
+    |:---|:---|:---|
+    | 1 | **Electricity markets 101** | Supply must match demand every second and physics picks the path, so an ISO solves an optimization every few minutes. |
+    | 2 | **Economic dispatch** | The merit order solves the dispatch LP. The price is the **dual** of supply = demand, and it makes the schedule each generator’s own best choice. |
+    | 3 | **Adding the network** | DC-OPF is min-cost network flow plus Kirchhoff’s law. One balance row per bus gives one price per bus (LMP); binding lines make prices differ, even go negative. |
+    | 4 | **Reserves and capacity** | Each new requirement row adds a product with its own price (reserves, capacity). Missing money is why capacity markets exist. |
+    | 5 | **Unit commitment** | On/off decisions make the day-ahead market a MILP with no duals. ISOs fix the binaries to price, then pay uplift, or price a relaxation (fast-start, ELMP). |
+    | 6 | **Portfolio management** | Market participants solve LPs too: CVaR-limited hedging is a two-stage stochastic program whose duals price risk and cap what to pay for a contract. |
+
+    /// admonition | The thread
+    Every price an ISO clears is a **dual variable**, or, when the problem is a MILP, an approximation of one.
+    ///
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## The LP–market dictionary
 
     | LP concept | Electricity market meaning |
     |:---|:---|
