@@ -170,11 +170,11 @@ def _(mo):
     |:---|:---|:---|:---|
     | 1 | [**Electricity markets 101**](#/3) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
     | 2 | [**Economic dispatch**](#/11) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/19) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves and capacity**](#/35) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
-    | 5 | [**Unit commitment**](#/42) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/50) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/63) | Additional topics, a summary, glossary and sources | — |
+    | 3 | [**Adding the network**](#/20) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves and capacity**](#/37) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
+    | 5 | [**Unit commitment**](#/45) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/54) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/68) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -510,6 +510,22 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
+    # 2 · Economic dispatch
+
+    **So far:** power must balance every second, generators submit offers, and an ISO decides who runs.
+
+    **But:** how should it choose who runs, and what price should everyone be paid?
+
+    **Next:** the simplest version, one location with no lines, is a small LP, and its dual variable is the price.
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
 
     ## Economic dispatch: who produces how much?
 
@@ -745,6 +761,22 @@ def _(demand_slider, mo, single_bus):
         )
 
     single_bus_slide(demand_slider.value)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    # 3 · Adding the network
+
+    **So far:** one bus, one price, as if power could reach anyone for free.
+
+    **But:** power travels over lines with limits, and it follows physics, not contracts. When a line fills up, cheap power can’t reach everyone.
+
+    **Next:** add the network: a min-cost flow problem plus Kirchhoff’s law, which gives one price per location (the LMP).
+    """
+    )
     return
 
 
@@ -1484,6 +1516,22 @@ def _(terms, go, mo, pd, show_chart):
 def _(mo):
     mo.md(
         r"""
+    # 4 · Reserves and capacity
+
+    **So far:** the LP buys just enough energy (MWh) for this interval, at the right place.
+
+    **But:** a plant can trip at any moment, forecasts miss, and someone has to build plants for future peaks.
+
+    **Next:** add requirement constraints for reserves and capacity. Each new row brings its own price.
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
 
     ## Why reserves and capacity? Reliability needs MW, not just MWh
 
@@ -1684,6 +1732,22 @@ def _(clear_capacity_auction, go, mo, np, requirement_slider, show_chart):
         )
 
     capacity_auction_slide(requirement_slider.value)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    # 5 · Unit commitment
+
+    **So far:** every LP assumed we already knew which plants were running.
+
+    **But:** big plants take hours to start and can’t run below a minimum, so on/off is a yes/no choice made a day ahead.
+
+    **Next:** unit commitment is a MILP, and that breaks the “price = dual” story.
+    """
+    )
     return
 
 
@@ -2069,6 +2133,22 @@ def _(ASSETS, np, pd):
         price_scenarios,
         solar_scenarios,
     )
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    # 6 · Portfolio management
+
+    **So far:** the ISO’s view: dispatching plants and setting prices.
+
+    **But:** those prices are volatile. A utility that buys at them but sells at fixed retail rates carries the risk.
+
+    **Next:** switch seats to a market participant, who hedges with an LP over price scenarios (CVaR, stochastic programming).
+    """
+    )
+    return
 
 
 @app.cell(hide_code=True)
