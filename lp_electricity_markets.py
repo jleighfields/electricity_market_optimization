@@ -1394,6 +1394,9 @@ def _(terms, go, mo, pd, show_chart):
 
     That spread is the signature of binding transmission constraints between regions.
 
+    Hub and zone prices average many nodes, hiding the extremes: individual nodes ranged from
+    **−\\$38 to \\$192/MWh** in this interval.
+
     At **4:00 pm** the day before (10 Nov), all 15 hubs and load zones ERCOT publishes sat between **\\$35.11 and \\$37.17**.
     Congestion comes and goes.
     """
