@@ -113,15 +113,15 @@ def _(ASSETS, json, mo, plants):
                         mo.md(
                             f"""
     ERCOT alone coordinates **{len(texas):,} power plants** ({texas.capacity_mw.sum() / 1000:.0f} GW), owned by
-    many different companies, across Texas. Every 5 minutes it sets output targets so supply matches
-    demand and no line overloads: that is how the grid stays reliable.
+    many different companies, across Texas, keeping supply equal to demand
+    with no line overloaded.
 
-    **Nobody phones the plants. Prices do the coordinating**, and they differ by place: in this
-    interval, from **−\\${-best["node_min"]:.0f}** to **\\${best["node_max"]:.0f}/MWh** across the map.
+    **Each dispatchable plant gets an instruction**, a MW target, every 5 minutes, and **prices make following it
+    worthwhile**. They differ by place: in this interval, from **−\\${-best["node_min"]:.0f}** to **\\${best["node_max"]:.0f}/MWh** across the map.
 
     /// admonition | How?
-    An **optimization problem**, solved every few minutes. Its **dual variables** are the prices, and they
-    make each plant’s own best choice match the plan.
+    An **optimization problem**, solved every few minutes, sets the instructions. Its **dual variables** are the
+    prices, which make each plant’s instruction its own best choice.
     ///
     """
                         ),
