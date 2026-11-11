@@ -116,12 +116,12 @@ def _(ASSETS, json, mo, plants):
     many different companies, across Texas, keeping supply equal to demand
     with no line overloaded.
 
-    **Each dispatchable plant gets an instruction**, a MW target, every 5 minutes, and **prices make following it
-    worthwhile**. They differ by place: in this interval, from **−\\${-best["node_min"]:.0f}** to **\\${best["node_max"]:.0f}/MWh** across the map.
+    Every 5 minutes, each dispatchable plant gets an **instruction** (a MW target) and a **price** for its location.
+    Prices differ by place: in this interval, from **−\\${-best["node_min"]:.0f}** to **\\${best["node_max"]:.0f}/MWh** across the map.
 
     /// admonition | How?
-    An **optimization problem**, solved every few minutes, sets the instructions. Its **dual variables** are the
-    prices, which make each plant’s instruction its own best choice.
+    Both come from one **optimization problem**, solved every few minutes: the instructions are its **solution**,
+    the prices its **dual variables**. The prices make each plant’s instruction its own best choice.
     ///
     """
                         ),
