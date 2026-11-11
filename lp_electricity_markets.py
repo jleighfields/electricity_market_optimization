@@ -664,10 +664,12 @@ def _(mo):
     - **One balance constraint per bus**, so **one price per bus**: the *locational marginal price* (LMP).
     - $A$ is the network’s **incidence matrix**: $A_{n\ell} = +1$ if line $\ell$ starts at bus $n$, $-1$ if it ends
       there, $0$ otherwise. So $\sum_\ell A_{n\ell} f_\ell$ is the **net flow out of bus $n$**.
-    - Flows follow linearized physics (reactances $x_\ell$, angles $\theta$). Equivalently, $f = \text{PTDF}\cdot\text{injections}$.
-    - Real AC power flow is nonconvex. The “DC” approximation keeps this an LP.
+    - **Summed over buses**, each column of $A$ sums to 0 (each line leaves one bus and enters another), so total generation
+      = total load automatically. One angle is fixed as the reference, $\theta_{\text{ref}} = 0$.
+    - Flows follow linearized physics (reactances $x_\ell$, angles $\theta$), or $f = \text{PTDF}\cdot\text{injections}$. Real AC power
+      flow is nonconvex; this “DC” approximation keeps it an LP.
 
-    <small>**Terms** · $n$: bus · $\lambda_n$: LMP at bus $n$ · $c_i, p_i, \underline P_i, \overline P_i, \overline P^{\,\text{avail}}_j$: offer, output, limits, as before · $G(n)$: all generators at bus $n$, including wind and solar · $D_n$: load at bus $n$ · $f_\ell$: MW on line $\ell$, from bus $a(\ell)$ to $b(\ell)$ · $\theta_n$: voltage angle at bus $n$ · $F_\ell$: line limit · $\mu_\ell$: value of 1 MW more line capacity ·**PTDF** (power transfer distribution factor): MW on a line per MW injected at a bus · **injection**: generation − load at a bus</small>
+    <small>**Terms** · $n$: bus · $\lambda_n$: LMP at bus $n$ · $G(n)$: generators at bus $n$ · $D_n$: load at bus $n$ · $f_\ell$: MW on line $\ell$, from bus $a(\ell)$ to $b(\ell)$ · $\theta_n$: voltage angle at bus $n$ · $F_\ell$: line limit · $\mu_\ell$: value of 1 MW more line capacity · **PTDF**: MW on a line per MW injected at a bus · **injection**: generation − load at a bus</small>
     """
     )
     return
