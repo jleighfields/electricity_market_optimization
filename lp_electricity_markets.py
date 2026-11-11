@@ -1359,16 +1359,15 @@ def _(ASSETS, json, mo, terms):
 
 @app.cell(hide_code=True)
 def _(terms, go, mo, pd, show_chart):
-    # ERCOT Real-Time Settlement Point Prices, interval ending 01:45, 10 Nov 2026
+    # ERCOT Real-Time Settlement Point Prices, interval ending 04:45, 11 Nov 2026 (same interval as the map)
     # https://www.ercot.com/content/cdr/html/real_time_spp.html
     ercot = pd.Series(
         {
-            "HB_PAN": 13.49, "LZ_RAYBN": 20.92, "LZ_NORTH": 22.59, "HB_NORTH": 22.98,
-            "HB_HOUSTON": 34.07, "LZ_HOUSTON": 34.60, "HB_BUSAVG": 35.81,
-            "LZ_SOUTH": 47.92, "HB_SOUTH": 47.96, "LZ_CPS": 51.40,
-            "HB_WEST": 73.67, "LZ_WEST": 142.98,
+            "HB_BUSAVG": 35.65, "HB_HOUSTON": 33.88, "HB_NORTH": 25.40, "HB_PAN": 17.74,
+            "HB_SOUTH": 44.91, "HB_WEST": 66.44, "LZ_CPS": 47.64, "LZ_HOUSTON": 34.29,
+            "LZ_NORTH": 25.33, "LZ_RAYBN": 24.17, "LZ_SOUTH": 44.95, "LZ_WEST": 122.29,
         }
-    )
+    ).sort_values()
 
     def ercot_spread_slide():
         colors = [
@@ -1380,7 +1379,7 @@ def _(terms, go, mo, pd, show_chart):
             text=[f"${price:.2f}" for price in ercot.values], textposition="outside",
             cliponaxis=False, hovertemplate="%{y}: $%{x:.2f}/MWh<extra></extra>",
         ))
-        fig.update_xaxes(title="$/MWh", range=[0, 165])
+        fig.update_xaxes(title="$/MWh", range=[0, 140])
         fig.update_yaxes(autorange="reversed")
 
         return mo.vstack(
@@ -1391,11 +1390,11 @@ def _(terms, go, mo, pd, show_chart):
                         show_chart(fig, 420, bargap=0.25),
                         mo.md(
                             """
-    In the same 15 minutes, the **Panhandle** cleared at **\\$13.49/MWh** and **far West Texas** at **\\$142.98**.
+    In the same 15 minutes as the map, the **Panhandle** cleared at **\\$17.74/MWh** and **far West Texas** at **\\$122.29**.
 
     That spread is the signature of binding transmission constraints between regions.
 
-    At **4:00 pm** the same day, all 15 hubs and load zones ERCOT publishes sat between **\\$35.11 and \\$37.17**.
+    At **4:00 pm** the day before (10 Nov), all 15 hubs and load zones ERCOT publishes sat between **\\$35.11 and \\$37.17**.
     Congestion comes and goes.
     """
                         ),
@@ -1403,7 +1402,7 @@ def _(terms, go, mo, pd, show_chart):
                     widths=[1.4, 1],
                 ),
                 mo.md(
-                    "<small>Source: ERCOT Real-Time Settlement Point Prices, interval ending 01:45, 10 Nov 2026. "
+                    "<small>Source: ERCOT Real-Time Settlement Point Prices, interval ending 04:45, 11 Nov 2026. "
                     "12 of ERCOT’s 15 hubs and load zones shown; HB = hub, LZ = load zone. Settlement point prices "
                 "are LMP-based; since Dec 2025 (RTC+B) energy and reserves are co-optimized, replacing the ORDC price adder.</small>"
                 ),
