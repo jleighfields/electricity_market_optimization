@@ -1388,7 +1388,7 @@ def _(mo):
     - **Below cost:** if $\lambda$ is less than the unit’s cost at its minimum ($\underline\mu_i > 0$), its market revenue
       falls short, and that shortfall is what **uplift** covers.
 
-    <small>**Terms** · **spinning reserve**: spare capacity on a unit that is already running · **deployed**: reserve the ISO actually calls on · as before: $\lambda, \sigma$: energy, reserve prices · $p_i, r_i$: energy, reserve MW · $c_i, b_i$: their offers · $\underline P_i, \overline P_i$: min, max · $\underline\mu_i$: dual of the min</small>
+    <small>**Terms** · **spinning reserve**: spare capacity on a unit that is already running · **deployed**: reserve the ISO actually calls on · as before: $\lambda, \sigma$: energy, reserve prices · $p_i, r_i$: energy, reserve MW · $c_i, b_i$: their offers · $\underline P_i, \overline P_i$: min, max · $\underline\mu_i$: dual of the min · **uplift**: a make-whole payment from the ISO, outside the price, covering that shortfall (more under unit commitment)</small>
     """
     )
     return
