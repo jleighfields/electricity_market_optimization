@@ -56,4 +56,4 @@ The ERCOT bar chart is a fixed snapshot (interval ending 01:45, 10 Nov 2026).
 ## Further reading
 
 - J. A. Taylor, *Convex Optimization of Power Systems*, Cambridge University Press, 2015.
-- D. S. Kirschen and G. Strbac, *Fundamentals of Power System Economics*, 2nd ed., Wiley, 2019.
+- D. S. Kirschen and G. Strbac, *Fundamentals of Power System Economics*, 2nd ed., Wiley, 2018.

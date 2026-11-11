@@ -1405,12 +1405,12 @@ def _(terms, go, mo, pd, show_chart):
                 mo.md(
                     "<small>Source: ERCOT Real-Time Settlement Point Prices, interval ending 01:45, 10 Nov 2026. "
                     "12 of ERCOT’s 15 hubs and load zones shown; HB = hub, LZ = load zone. Settlement point prices "
-                "are LMP-based and include ERCOT’s reserve-scarcity (ORDC) adders.</small>"
+                "are LMP-based; since Dec 2025 (RTC+B) energy and reserves are co-optimized, replacing the ORDC price adder.</small>"
                 ),
             ]
         )
 
-    mo.vstack([ercot_spread_slide(), terms(r"**hub / load zone**: average price over a set of buses / over a region’s load &ensp;|&ensp; **settlement point price**: the price used for payment there, over 15 minutes &ensp;|&ensp; **ORDC** (operating reserve demand curve): price adder that rises as reserves shrink")])
+    mo.vstack([ercot_spread_slide(), terms(r"**hub / load zone**: average price over a set of buses / over a region’s load &ensp;|&ensp; **settlement point price**: the price used for payment there, over 15 minutes &ensp;|&ensp; **RTC+B**: ERCOT’s real-time co-optimization of energy, reserves and batteries, live since Dec 2025")])
     return
 
 
@@ -1509,7 +1509,7 @@ def _(mo):
     |:---|:---|:---|
     | **Centralized capacity auction** | PJM, MISO, ISO-NE, NYISO | The ISO buys capacity against a sloped demand curve, from weeks ahead (MISO, NYISO) to up to about 3 years ahead (PJM); one clearing price per zone. |
     | **Bilateral RA market** | California (CAISO) | No auction. LSEs buy RA bilaterally from resource owners, and the CPUC requires each of its LSEs to show contracts covering its load in **every hour of each month’s peak day** (“slice-of-day,” since 2025) plus a planning reserve margin. Publicly owned utilities follow their own regulators. CAISO enforces offer obligations and backstop procurement. |
-    | **Energy-only** | ERCOT | No capacity product. Scarcity pricing (an operating-reserve demand curve adder) raises energy prices when reserves run short. |
+    | **Energy-only** | ERCOT | No capacity product. Scarcity pricing: reserve demand curves, co-optimized with energy, raise prices when reserves run short. |
 
     In an **auction**, the **capacity price is a dual**: the shadow price of the reliability requirement. (A bilateral RA price is negotiated; ERCOT has no capacity price.)
 
@@ -1530,7 +1530,7 @@ def _(mo):
     | Axis | Set by | How |
     |:---|:---|:---|
     | **Quantity** (MW) | Reliability study | Forecast peak load plus the reserve margin needed to meet a loss-of-load target, typically **“one day in ten years.”** This is the *reliability requirement*. |
-    | **Price** (\$/MW-day) | Net CONE | **Cost of new entry** for a reference new plant (a gas combustion turbine or combined cycle; PJM now uses a combined cycle), **net** of the energy and reserve revenue it expects to earn: the “missing money” a new plant needs. |
+    | **Price** (\$/MW-day) | Net CONE | **Cost of new entry** for a reference new plant (usually a gas combustion turbine, as in PJM), **net** of the energy and reserve revenue it expects to earn: the “missing money” a new plant needs. |
 
     - The curve **slopes down** because each MW beyond the requirement buys less extra reliability, and a
       vertical requirement would make prices jump between zero and the cap.
@@ -1934,7 +1934,7 @@ def _(go, hours, mo, pd, show_chart, status, uc, unit_commitment, units):
                         "so the ISO pays it a make-whole **uplift** outside the price. "
                         "Alternatives price off a convex relaxation instead: **convex hull pricing**, and "
                         "MISO’s **ELMP** (Extended LMP), which relaxes fast-start units’ on/off variables "
-                        "from {0, 1} to [0, 1] so their startup and no-load costs can set the price; PJM, NYISO, ISO-NE and SPP use similar fast-start pricing."
+                        "from {0, 1} to [0, 1] so their startup and no-load costs can set the price; PJM, NYISO, ISO-NE and SPP use similar fast-start pricing.\n\n**In short:** fixing the binaries prices the next MWh once commitments are made, not the cost of having those plants on. Pricing a MILP means deciding how much of that commitment cost goes in the price rather than in side payments."
                     ),
                     kind="warn",
                 ),
@@ -1956,8 +1956,8 @@ def _(mo):
     - **Deadline:** the day-ahead market has to clear in a fixed window, so solvers run under time limits with an optimality gap.
     - **Formulation:** tight formulations matter. An LP relaxation close to the convex hull lets branch-and-bound finish in time.
 
-    US ISOs replaced Lagrangian relaxation with commercial MILP solvers in the 2000s–2010s (PJM first, around 2005),
-    and FERC has credited the switch with large production-cost savings.
+    US ISOs replaced Lagrangian relaxation with commercial MILP solvers in the 2000s–2010s (PJM first, in 2004),
+    and a FERC staff report credits the switch with large production-cost savings.
 
     <small>**Terms** — **FERC**: federal regulator of wholesale markets &ensp;|&ensp; **production cost**: total fuel, startup and operating cost of serving load</small>
     """
@@ -2721,13 +2721,13 @@ def _(mo):
       optimize across scenarios, remain mostly research. In planning, **two-stage stochastic programs** (invest now,
       dispatch per scenario) are common: see PyPSA’s [stochastic optimization example](https://docs.pypsa.org/latest/examples/stochastic-optimization/).
     - **Batteries.** State of charge links every hour to the next, and a battery’s real cost is the
-      *opportunity cost* of energy it could sell later, so how storage should bid is an open question.
+      *opportunity cost* of energy it could sell later, so how storage should bid, and how ISOs should model and mitigate it, is still being worked out.
       With round-trip losses an LP may also charge and discharge at once to burn energy when prices are
       negative; models forbid it with a binary or accept it as harmless.
     - **Pricing nonconvexity.** How to price a MILP is still contested: MISO uses ELMP; PJM, NYISO, ISO-NE and SPP
       use fast-start pricing rules; convex hull pricing is the benchmark, but exact versions are hard to compute.
 
-    <small>**Terms** — **state of charge**: energy stored in a battery &ensp;|&ensp; **round-trip losses**: energy lost charging and discharging (10–15%) &ensp;|&ensp; **ramping products**: reserves for fast MW changes &ensp;|&ensp; **fast-start pricing**: lets quick-start units’ commitment costs set the price &ensp;|&ensp; **deterministic / stochastic / robust UC**: one forecast / averaged over scenarios / worst case over a range</small>
+    <small>**Terms** — **state of charge**: energy stored in a battery &ensp;|&ensp; **round-trip losses**: energy lost charging and discharging (about 10–20%) &ensp;|&ensp; **ramping products**: reserves for fast MW changes &ensp;|&ensp; **fast-start pricing**: lets quick-start units’ commitment costs set the price &ensp;|&ensp; **deterministic / stochastic / robust UC**: one forecast / averaged over scenarios / worst case over a range</small>
     """
     )
     return
@@ -2805,7 +2805,7 @@ def _(mo):
     |:---|:---|
     | **Uplift / make-whole** | Payment outside the price to a unit whose market revenue doesn’t cover its costs. |
     | **Reserves** | Capacity held back to cover a sudden outage; has its own price. |
-    | **Scarcity pricing / ORDC** | Higher prices as reserves run short; ERCOT uses an *operating reserve demand curve*. |
+    | **Scarcity pricing / ORDC** | Higher prices as reserves run short; set by reserve demand curves (ERCOT’s ORDC adder, replaced in Dec 2025 by curves co-optimized with energy). |
     | **Resource adequacy (RA)** | Having enough capacity for the peak hour years ahead. |
     | **Capacity market** | An auction (PJM, MISO, ISO-NE, NYISO) buying capacity (MW-day), not energy (MWh). California’s RA is bilateral, not an auction. |
     | **Energy-only market** | No capacity product; scarcity prices pay for capacity (ERCOT). |
@@ -2970,10 +2970,10 @@ def _(mo):
 
     | Source | What it is | Used for |
     |:---|:---|:---|
-    | [**EIA-860**](https://www.eia.gov/electricity/data/eia860/) | U.S. Energy Information Administration’s annual survey of every generator ≥ 1 MW: location, capacity, fuel, balancing authority (2025 data). | Power plant, ISO and WECC maps |
+    | [**EIA-860**](https://www.eia.gov/electricity/data/eia860/) | U.S. Energy Information Administration’s annual survey of every power plant ≥ 1 MW: location, capacity, fuel, balancing authority (2025 data). | Power plant, ISO and WECC maps |
     | [**EIA-930**](https://www.eia.gov/electricity/gridmonitor/) | EIA’s hourly balancing-authority data: demand, generation by fuel, interchange. No prices. | PG&E-area load, CAISO solar shape |
     | [**PUDL**](https://catalyst.coop/pudl/) | Public Utility Data Liberation, by Catalyst Cooperative: cleaned, open EIA and FERC data. How we accessed EIA-860 and EIA-930. | All EIA data |
-    | [**CAISO OASIS**](https://oasis.caiso.com/) | CAISO’s public market data: day-ahead LMPs with energy, congestion and loss parts. Keeps about 3 years. | PG&E DLAP prices, Jan 2024 – Oct 2026 |
+    | [**CAISO OASIS**](https://oasis.caiso.com/) | CAISO’s public market data: day-ahead LMPs with energy, congestion and loss parts. Keeps about 39 months. | PG&E DLAP prices, Jan 2024 – Oct 2026 |
     | [**ERCOT market data**](https://www.ercot.com/mktinfo/rtm) | Real-time [LMP contour map](https://www.ercot.com/content/cdr/contours/rtmLmp.html) and [settlement point prices](https://www.ercot.com/content/cdr/html/real_time_spp.html). | Live LMP map, Texas price spread |
     | [**GridSFM US Power Grid**](https://huggingface.co/datasets/microsoft/GridSFM_US_power_grid) | Microsoft Research’s open, approximate transmission models built from OpenStreetMap, EIA and Census data (MIT license). | Western transmission map and DC-OPF |
     | [**PyPSA example: Negative LMPs from Line Congestion**](https://docs.pypsa.org/latest/examples/negative-prices-kvl-baker/) | After [K. Baker, *3bus_LMPs*](https://github.com/kyribaker/3bus_LMPs) and [Baker & Gangammanavar (2024)](https://doi.org/10.48550/arXiv.2403.19032). | Negative-price three-bus example |
@@ -3002,7 +3002,7 @@ def _(mo):
     **This deck:** notebook, data and build scripts at [github.com/jleighfields/electricity_market_optimization](https://github.com/jleighfields/electricity_market_optimization).
 
     **Further reading:** J. A. Taylor, *Convex Optimization of Power Systems*, Cambridge University Press, 2015 &ensp;|&ensp;
-    D. S. Kirschen and G. Strbac, *Fundamentals of Power System Economics*, 2nd ed., Wiley, 2019.
+    D. S. Kirschen and G. Strbac, *Fundamentals of Power System Economics*, 2nd ed., Wiley, 2018.
     """
     )
     return
