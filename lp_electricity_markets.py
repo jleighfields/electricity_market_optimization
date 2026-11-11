@@ -2720,8 +2720,12 @@ def _(mo):
 
     - **Uncertainty.** Wind and solar forecasts err. ISOs still run *deterministic* unit commitment and
       cover the error with reserve and ramping products; *stochastic* and *robust* unit commitment, which
-      optimize across scenarios, remain mostly research. In planning, **two-stage stochastic programs** (invest now,
-      dispatch per scenario) are common: see PyPSA’s [stochastic optimization example](https://docs.pypsa.org/latest/examples/stochastic-optimization/).
+      optimize across scenarios, remain mostly research.
+    - **Integrated resource planning (IRP).** Utilities choose what to build or buy from a menu (solar, wind, storage,
+      gas, transmission, efficiency) to serve load 10–20+ years out. A *capacity-expansion* LP or MILP picks the mix, but the
+      assets last 25–60+ years, so they face very uncertain loads, fuel costs, technology costs and public policy.
+      **Two-stage stochastic programs** (build now, operate per scenario) address this directly: see PyPSA’s
+      [stochastic optimization example](https://docs.pypsa.org/latest/examples/stochastic-optimization/).
     - **Batteries.** State of charge links every hour to the next, and a battery’s real cost is the
       *opportunity cost* of energy it could sell later, so how storage should bid, and how ISOs should model and mitigate it, is still being worked out.
       With round-trip losses an LP may also charge and discharge at once to burn energy when prices are
@@ -2729,7 +2733,7 @@ def _(mo):
     - **Pricing nonconvexity.** How to price a MILP is still contested: MISO uses ELMP; PJM, NYISO, ISO-NE and SPP
       use fast-start pricing rules; convex hull pricing is the benchmark, but exact versions are hard to compute.
 
-    <small>**Terms** — **state of charge**: energy stored in a battery &ensp;|&ensp; **round-trip losses**: energy lost charging and discharging (about 10–20%) &ensp;|&ensp; **ramping products**: reserves for fast MW changes &ensp;|&ensp; **fast-start pricing**: lets quick-start units’ commitment costs set the price &ensp;|&ensp; **deterministic / stochastic / robust UC**: one forecast / averaged over scenarios / worst case over a range</small>
+    <small>**Terms** — **state of charge**: energy stored in a battery &ensp;|&ensp; **round-trip losses**: energy lost charging and discharging (about 10–20%) &ensp;|&ensp; **ramping products**: reserves for fast MW changes &ensp;|&ensp; **fast-start pricing**: lets quick-start units’ commitment costs set the price &ensp;|&ensp; **deterministic / stochastic / robust UC**: one forecast / averaged over scenarios / worst case over a range &ensp;|&ensp; **capacity expansion**: choosing what to build and when, plus how it will run</small>
     """
     )
     return
@@ -2751,7 +2755,8 @@ def _(mo):
     | 6 | **Portfolio management** | Market participants solve LPs too: CVaR-limited hedging is a two-stage stochastic program whose duals price risk and cap what to pay for a contract. |
 
     /// admonition | The thread
-    Every price an ISO clears is a **dual variable**, or, when the problem is a MILP, an approximation of one.
+    **Optimization runs through every part of the electricity market:** ISOs commit and dispatch plants with MILPs and LPs,
+    the prices they publish are dual variables, participants hedge with LPs, and planners choose what to build with them.
     ///
     """
     )
