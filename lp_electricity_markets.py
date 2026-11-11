@@ -1599,7 +1599,7 @@ def _(mo):
     - $u_{it} = 1$ if unit $i$ is **on** in hour $t$ · $v_{it} = 1$ if it **starts up** · $c^{\text{SU}}_i$ = startup cost
     - Multi-period (24–36 hours), coupled through time by startups, min up/down times and ramp limits.
 
-    <small>**Terms** · $i$: all units, $j$: wind and solar · $t$: hour · $p_{it}$: output (MW) · $c_i$: offer (\$/MWh) · $D_t$: demand in hour $t$ · $UT_i$: unit $i$’s minimum up time (hours) · $\tau$: the recent hours · **ramp limit**: most MW a unit can change per hour · no-load cost and minimum down time omitted for brevity</small>
+    <small>**Terms** · $i$: all units, $j$: wind and solar · $\overline P^{\,\text{avail}}_{jt}$: forecast wind/solar output · **curtail**: produce less than that, e.g., when prices go negative or a line is full · $t$: hour · $p_{it}$: output (MW) · $c_i$: offer (\$/MWh) · $D_t$: demand in hour $t$ · $UT_i$: unit $i$’s minimum up time (hours) · $\tau$: the recent hours · **ramp limit**: most MW a unit can change per hour · no-load cost and minimum down time omitted for brevity</small>
     """
     )
     return
@@ -1788,7 +1788,7 @@ def _(hours, mo, pd, plt, status, uc, unit_commitment, units):
                 mo.md(
                     "## The pricing problem in practice\n\n"
                     f"PyPSA reports **{milp_prices.abs().max():.0f}** for every MILP dual: there are none to report. "
-                    "So the ISO **fixes the binaries at their optimal values, re-solves the LP and uses its duals**. "
+                    "So ISOs (and this demo) **fix the binaries at their optimal values, re-solve the LP and publish its duals**: the standard *pricing run*. "
                     "With binaries fixed, every unit’s range is convex again, so the LP has true duals:"
                 ),
                 mo.hstack([fig, uplift], widths=[1.2, 1]),
@@ -1798,7 +1798,7 @@ def _(hours, mo, pd, plt, status, uc, unit_commitment, units):
                         "so the ISO pays it a make-whole **uplift** outside the price. "
                         "Alternatives price off a convex relaxation instead: **convex hull pricing**, and "
                         "MISO’s **ELMP** (Extended LMP), which relaxes fast-start units’ on/off variables "
-                        "from {0, 1} to [0, 1] so their startup and no-load costs can set the price."
+                        "from {0, 1} to [0, 1] so their startup and no-load costs can set the price; PJM, NYISO and ISO-NE use similar fast-start pricing."
                     ),
                     kind="warn",
                 ),
