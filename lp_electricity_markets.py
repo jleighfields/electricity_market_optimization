@@ -99,6 +99,45 @@ def _():
 
 
 @app.cell(hide_code=True)
+def _(ASSETS, json, mo, plants):
+    def hook_slide():
+        """Opening: the coordination problem, with the most congested ERCOT map captured."""
+        best = json.loads((ASSETS / "ercot_best.json").read_text())
+        texas = plants[plants.ba == "ERCO"]
+        return mo.vstack(
+            [
+                mo.md("## Every 5 minutes, hundreds of power plants act as one"),
+                mo.hstack(
+                    [
+                        mo.image((ASSETS / "ercot_best_map.png").read_bytes(), width=470),
+                        mo.md(
+                            f"""
+    ERCOT alone coordinates **{len(texas):,} power plants** ({texas.capacity_mw.sum() / 1000:.0f} GW), owned by
+    many different companies, across Texas. Every 5 minutes it sets output targets so supply matches
+    demand and no line overloads: that is how the grid stays reliable.
+
+    **Nobody phones the plants. Prices do the coordinating**, and they differ by place: in this
+    interval, from **−\\${-best["node_min"]:.0f}** to **\\${best["node_max"]:.0f}/MWh** across the map.
+
+    /// admonition | How?
+    An **optimization problem**, solved every few minutes. Its **dual variables** are the prices, and they
+    make each plant’s own best choice match the plan.
+    ///
+    """
+                        ),
+                    ],
+                    widths=[1.05, 1],
+                    align="center",
+                ),
+                mo.md("<small>ERCOT real-time LMP map, 11 Nov 2026, 04:45. Plants and capacity: EIA-860 (2025) via PUDL, ERCOT balancing authority.</small>"),
+            ]
+        )
+
+    hook_slide()
+    return
+
+
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
@@ -106,13 +145,13 @@ def _(mo):
 
     | | Section | What it covers | The optimization idea |
     |:---|:---|:---|:---|
-    | 1 | [**Electricity markets 101**](#/2) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
-    | 2 | [**Economic dispatch**](#/10) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/18) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves and capacity**](#/34) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
-    | 5 | [**Unit commitment**](#/41) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/49) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/62) | Additional topics, a summary, glossary and sources | — |
+    | 1 | [**Electricity markets 101**](#/3) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
+    | 2 | [**Economic dispatch**](#/11) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
+    | 3 | [**Adding the network**](#/19) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves and capacity**](#/35) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
+    | 5 | [**Unit commitment**](#/42) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/50) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/63) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
