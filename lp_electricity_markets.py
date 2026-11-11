@@ -1191,7 +1191,7 @@ def _(mo, terms):
                 n.model.add_constraints(net >= -limit, name=f"Path-{name}-rev")
         return extra_functionality
 
-    mo.vstack([mo.md("## Code: adding WECC path limits as custom LP constraints"), mo.show_code(), terms(r"**WECC path (interface)**: lines between two areas with a combined flow limit &ensp;|&ensp; **path price**: its dual, \$/MWh of transfer &ensp;|&ensp; `extra_functionality`: PyPSA hook to add your own LP rows")])
+    mo.vstack([mo.md("## Code: adding WECC path limits as custom LP constraints"), mo.md(r"**Why, on top of each line’s thermal limit?** Path limits cap total flow across a group of lines below their summed thermal ratings, so the grid survives losing any one line and stays stable."), mo.show_code(), terms(r"**WECC path (interface)**: lines between two areas with a combined flow limit &ensp;|&ensp; **path price**: its dual, \$/MWh of transfer &ensp;|&ensp; `extra_functionality`: PyPSA hook to add your own custom constraints")])
     return add_path_limits, path_limits
 
 
