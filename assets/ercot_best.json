@@ -9,5 +9,7 @@
     "LZ_RAYBN",
     147.66
   ],
-  "captured": "2026-11-10 18:36"
+  "captured": "2026-11-10 18:36",
+  "nodal_spread": 100.0,
+  "nodal_spread_note": "estimated; capture predates nodal tracking"
 }

@@ -10,7 +10,7 @@ A marimo notebook that presents as slides, with live LP/MILP demos (PyPSA + HiGH
 - 24-hour unit commitment MILP, the convex-hull view of why MILPs lack duals, and uplift
 - LSE portfolio hedging on real CAISO prices: CVaR-limited hedging LP with fixed-price contracts, price sensitivity,
   and the highest acceptable price for bilateral offers, read from the solved LP
-- glossary and sources appendix
+- glossary, sources and live ISO price-map links in the appendix
 
 ## Run it on any computer
 
