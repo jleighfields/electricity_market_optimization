@@ -802,7 +802,7 @@ def _(mo):
     - **Special structure:** the constraint matrix is the node–arc *incidence matrix*, which is totally unimodular, so
       integer supplies and capacities give integer optimal flows, and the **network simplex** method is very fast.
     - **Duals:** each node’s conservation row has a dual, a *node price* (potential). Shipping from $i$ to $j$
-      is worth the price difference, and a full arc earns the gap.
+      is worth the price difference, and an arc at capacity earns the gap.
 
     **The grid is a network** (buses = nodes, lines = arcs), and the node prices will be *locational marginal prices* (LMPs). **The catch:** you
     can’t pick the path. Physics splits the flow, which adds constraints.
@@ -954,7 +954,7 @@ def _(mo):
     | Dual | Value | Meaning |
     |:---|:---|:---|
     | $\lambda_1$ | **\$20** | Gen A has spare capacity, so one more MWh at bus 1 costs \$20. |
-    | $\lambda_2$ | **\$50** | The line is full, so one more MWh at bus 2 must come from Gen B. |
+    | $\lambda_2$ | **\$50** | The line is at capacity, so one more MWh at bus 2 must come from Gen B. |
     | $\mu_\ell$ | **\$30** | Each extra MW of line capacity saves \$30, and $\lambda_2 - \lambda_1 = \mu_\ell$. |
     | Congestion rent | **\$3,000** | Loads pay $150 \times 50 = 7{,}500$; generators receive $4{,}500$. The ISO collects the difference, $30 \times 100$, and pays it out (below). |
 
@@ -1866,7 +1866,7 @@ def _(mo):
     - $u_{it} = 1$ if unit $i$ is **on** in hour $t$ &ensp;|&ensp; $v_{it} = 1$ if it **starts up** &ensp;|&ensp; $c^{\text{SU}}_i$ = startup cost
     - Multi-period (24–36 hours), coupled through time by startups, min up/down times and ramp limits.
 
-    <small>**Terms** — $i$: all units, $j$: wind and solar &ensp;|&ensp; $\overline P^{\,\text{avail}}_{jt}$: forecast wind/solar output &ensp;|&ensp; **curtail**: produce less than that, e.g., when prices go negative or a line is full &ensp;|&ensp; $t$: hour &ensp;|&ensp; $p_{it}$: output (MW) &ensp;|&ensp; $c_i$: offer (\$/MWh) &ensp;|&ensp; $D_t$: demand in hour $t$ &ensp;|&ensp; $UT_i$: unit $i$’s minimum up time (hours) &ensp;|&ensp; $\tau$: the recent hours &ensp;|&ensp; **ramp limit**: most MW a unit can change per hour &ensp;|&ensp; no-load cost and minimum down time omitted for brevity</small>
+    <small>**Terms** — $i$: all units, $j$: wind and solar &ensp;|&ensp; $\overline P^{\,\text{avail}}_{jt}$: forecast wind/solar output &ensp;|&ensp; **curtail**: produce less than that, e.g., when prices go negative or a line is at capacity &ensp;|&ensp; $t$: hour &ensp;|&ensp; $p_{it}$: output (MW) &ensp;|&ensp; $c_i$: offer (\$/MWh) &ensp;|&ensp; $D_t$: demand in hour $t$ &ensp;|&ensp; $UT_i$: unit $i$’s minimum up time (hours) &ensp;|&ensp; $\tau$: the recent hours &ensp;|&ensp; **ramp limit**: most MW a unit can change per hour &ensp;|&ensp; no-load cost and minimum down time omitted for brevity</small>
     """
     )
     return
