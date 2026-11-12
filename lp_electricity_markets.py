@@ -671,7 +671,7 @@ def _(mo):
     - **Wind and solar are not dispatchable:** the weather sets their available output $\overline{P}^{\,\text{avail}}_j$
       each interval. The LP can only **curtail** them below it.
 
-    Substituting $p_i = \underline P_i + \delta_i$ leaves a **continuous knapsack**, so the greedy merit order solves it exactly.
+    Substituting $p_i = \underline P_i + \delta_i$ leaves a **continuous knapsack**: filling cheapest-first (the merit order) is provably optimal.
 
     <small>**Terms** — **online**: committed (on) this interval &ensp;|&ensp; **curtail**: use less wind or solar than the weather allows &ensp;|&ensp; $i$ indexes all units (so $\sum_i p_i$ includes wind and solar); $j$ marks the wind and solar units, whose upper limit is $\overline P^{\,\text{avail}}_j$ &ensp;|&ensp; $\delta_i \ge 0$: output above the minimum</small>
     """
@@ -808,10 +808,12 @@ def _(day_demand, day_dispatch, day_hours, go, make_subplots, mo, show_chart):
 
         return mo.vstack([
             mo.md("## A day of dispatch: supply stacks up to demand every hour"),
-            show_chart(fig, 450, legend=dict(orientation="h", x=0.01, y=1.0, yanchor="bottom")),
+            show_chart(fig, 410, legend=dict(orientation="h", x=0.01, y=1.0, yanchor="bottom")),
             mo.md(r"<small>Each hour the LP fills demand (black line) from the bottom of the merit order up. "
                   r"Whichever unit is on top, only partly used, is marginal and sets that hour’s price $\lambda_t$ (bottom panel). "
                   r"Solar (\$0) and wind (\$5) come first whenever available; as the sun sets into the evening peak, gas and the peaker fill in and the price jumps.</small>"),
+            mo.md(r"**But there’s a problem at midday:** this LP turns nuclear and coal **all the way off** around noon. Real plants can’t easily cut output to zero "
+                  r"(or restart in time for the evening), so that energy must go somewhere, into storage or exports, or we have to **curtail wind and solar**."),
         ])
 
     day_dispatch_slide()
