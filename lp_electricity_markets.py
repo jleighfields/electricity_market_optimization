@@ -118,9 +118,33 @@ def _():
 
 
 @app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## Goals for today
+
+    1. **An overview of electricity markets:** what is bought and sold, who is involved, and how prices are set.
+    2. **Connect the business problems to the math:** each market question turns out to be an LP or MILP you
+       already know how to write, and the market prices are its **dual variables**.
+    3. **Build up one step at a time:**
+
+    | Step | Business problem | Optimization |
+    |:---|:---|:---|
+    | 1 | Who should produce, and at what price? | A one-constraint **LP** (the merit order) |
+    | 2 | A whole day, with ramp limits and batteries | A bigger LP, hours linked together |
+    | 3 | Power travels over lines with limits | **Network flow** LP, one price per location |
+    | 4 | Hold back capacity in case something fails | New constraints, new prices |
+    | 5 | Decide a day ahead which plants turn on | **MILP**, and why it has no duals |
+    | 6 | Hedge a utility against uncertain prices | **Stochastic optimization** (an LP over scenarios) |
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
 def _(ASSETS, json, mo, plants):
     def hook_slide():
-        """Opening: the coordination problem, with the most congested ERCOT map captured."""
+        """Opening: the coordination problem, with the most congested ERCOT map captured, and its size."""
         best = json.loads((ASSETS / "ercot_best.json").read_text())
         texas = plants[plants.ba == "ERCO"]
         return mo.vstack(
@@ -128,27 +152,32 @@ def _(ASSETS, json, mo, plants):
                 mo.md("## Every 5 minutes, hundreds of power plants act as one"),
                 mo.hstack(
                     [
-                        mo.image((ASSETS / "ercot_best_map.png").read_bytes(), width=470, style={"background": "white", "padding": "4px", "border-radius": "4px"}),
+                        mo.image((ASSETS / "ercot_best_map.png").read_bytes(), width=430, style={"background": "white", "padding": "4px", "border-radius": "4px"}),
                         mo.md(
                             f"""
-    ERCOT alone coordinates **{len(texas):,} power plants** ({texas.capacity_mw.sum() / 1000:.0f} GW), owned by
-    many different companies, across Texas, keeping supply equal to demand
-    with no line overloaded.
+    ERCOT coordinates **{len(texas):,} power plants** ({texas.capacity_mw.sum() / 1000:.0f} GW), owned by many companies.
+    Every 5 minutes, each plant gets an **instruction** (a MW target) and a **price** for its location:
+    here from **−\\${-best["node_min"]:.0f}** to **\\${best["node_max"]:.0f}/MWh**.
 
-    Every 5 minutes, each dispatchable plant gets an **instruction** (a MW target) and a **price** for its location.
-    Prices differ by place: in this interval, from **−\\${-best["node_min"]:.0f}** to **\\${best["node_max"]:.0f}/MWh** across the map.
+    **How?** One **optimization problem**: the instructions are its **solution**, the prices its **dual variables**.
 
-    /// admonition | How?
-    Both come from one **optimization problem**, solved every few minutes: the instructions are its **solution**,
-    the prices its **dual variables**. The prices make each plant’s instruction its own best choice.
-    ///
+    **How big?** A rough estimate for one 5-minute solve:
+
+    | | Variables | Constraints |
+    |:---|---:|---:|
+    | ~1,500 units × (10 offer steps + 5 reserves) | 22,000 | 6,000 |
+    | ~16,700 buses, ~30,000 lines | 47,000 | 47,000 |
+    | **Total** | **~70,000** | **~50,000** |
+
+    Plus line limits for every possible outage: millions in principle, but only the few that bind are added.
     """
                         ),
                     ],
-                    widths=[1.05, 1],
+                    widths=[0.85, 1],
                     align="center",
                 ),
-                mo.md("<small>ERCOT real-time LMP map, 11 Nov 2026, 04:45. Plants and capacity: EIA-860 (2025) via PUDL, ERCOT balancing authority.</small>"),
+                mo.md("<small>ERCOT real-time LMP map, 11 Nov 2026, 04:45. Plants: EIA-860 (2025) via PUDL. Buses: Baker Institute (2024); "
+                      "unit, line and reserve counts are rough estimates (ERCOT co-optimizes energy and 5 reserve products in real time since Dec 2025).</small>"),
             ]
         )
 
@@ -164,13 +193,13 @@ def _(mo):
 
     | | Section | What it covers | The optimization idea |
     |:---|:---|:---|:---|
-    | 1 | [**Electricity markets 101**](#/3) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
-    | 2 | [**Economic dispatch**](#/12) | The merit order, why every generator is paid the same price, and a duck-curve day with ramp limits and a battery | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/26) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves**](#/43) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
-    | 5 | [**Unit commitment**](#/47) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/56) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/70) | Additional topics, a summary, glossary and sources | — |
+    | 1 | [**Electricity markets 101**](#/4) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how the market runs | — |
+    | 2 | [**Economic dispatch**](#/12) | The merit order, how generators bid and get paid, why everyone gets the same price, and a duck-curve day with ramp limits and a battery | LP; the price **is** the dual |
+    | 3 | [**Adding the network**](#/27) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves**](#/44) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
+    | 5 | [**Unit commitment**](#/48) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/57) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/71) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -528,34 +557,6 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
-    ## How generators bid, get awarded, and get paid
-
-    1. **Bid:** each generator offers a supply curve, a list of steps like *“200 MW at \$25/MWh.”*
-    2. **Clear:** the ISO picks the cheapest set of offers that meets demand (and respects the grid).
-    3. **Award:** each generator is told how many MW to produce: its **award**.
-    4. **Settle:** every awarded MWh is paid the **clearing price**, *not its own bid*.
-
-    | Unit | Offer (\$/MWh) | Awarded (MW) | Paid (\$/MWh) | Margin (\$/MWh) |
-    |:---|:---|:---|:---|:---|
-    | Wind | 5 | 200 | 35 | 30 |
-    | Nuclear | 12 | 250 | 35 | 23 |
-    | Coal | 25 | 200 | 35 | 10 |
-    | **Gas CC** | **35** | **170 of 200** (marginal) | 35 | 0 |
-    | Peaker | 80 | 0 | — | — |
-
-    *Demand 820 MW.* Since it is paid the clearing price whatever it bids, a small generator’s best strategy is to
-    **bid its true marginal cost**.
-
-    <small>**Terms** — **marginal cost**: cost of one more MWh &ensp;|&ensp; **Gas CC**: efficient combined-cycle plant &ensp;|&ensp; **peaker**: runs only at peaks &ensp;|&ensp; **small**: can’t move the price</small>
-    """
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
     # 2 · Economic dispatch
 
     **So far:** power must balance every second, generators submit offers, and an ISO decides who runs.
@@ -645,6 +646,34 @@ def _(demand_slider, go, mo, pd, show_chart):
 
     merit_order_slide(demand_slider.value)
     return (merit,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## How generators bid, get awarded, and get paid
+
+    1. **Bid:** each generator offers a supply curve, a list of steps like *“200 MW at \$25/MWh.”*
+    2. **Clear:** the ISO picks the cheapest set of offers that meets demand (and respects the grid).
+    3. **Award:** each generator is told how many MW to produce: its **award**.
+    4. **Settle:** every awarded MWh is paid the **clearing price**, *not its own bid*.
+
+    | Unit | Offer (\$/MWh) | Awarded (MW) | Paid (\$/MWh) | Margin (\$/MWh) |
+    |:---|:---|:---|:---|:---|
+    | Wind | 5 | 200 | 35 | 30 |
+    | Nuclear | 12 | 250 | 35 | 23 |
+    | Coal | 25 | 200 | 35 | 10 |
+    | **Gas CC** | **35** | **170 of 200** (marginal) | 35 | 0 |
+    | Peaker | 80 | 0 | — | — |
+
+    *Demand 820 MW.* Since it is paid the clearing price whatever it bids, a small generator’s best strategy is to
+    **bid its true marginal cost**.
+
+    <small>**Terms** — **marginal cost**: cost of one more MWh &ensp;|&ensp; **Gas CC**: efficient combined-cycle plant &ensp;|&ensp; **peaker**: runs only at peaks &ensp;|&ensp; **small**: can’t move the price</small>
+    """
+    )
+    return
 
 
 @app.cell(hide_code=True)
@@ -1282,7 +1311,7 @@ def _(go, mo, show_chart, three_bus):
             norm = (dx**2 + dy**2) ** 0.5
             label = f"{abs(flow):.0f} MW" + (" (at limit)" if binding else "")
             if abs(flow) < 1e-6:
-                label = "0 MW (see next slide)"
+                label = "0 MW (flows cancel: next slide)"
             fig.add_annotation(x=mid[0] + 0.45 * dx / norm, y=mid[1] + 0.45 * dy / norm,
                                text=f"<b>{label}</b>" if binding else label, showarrow=False,
                                font=dict(size=15))
@@ -1315,7 +1344,7 @@ def _(go, mo, show_chart, three_bus):
 
     As a pure **network flow**, Gen 1 would serve all 300 MW: 150 MW direct and
     150 MW around through bus 2 (cost \\$6,000, price \\$20 everywhere).
-    But Kirchhoff’s law splits the flow, so that cheapest dispatch would overload line 1–3. To stay within the
+    But power can’t be routed: it splits across every path in inverse proportion to the path’s reactance, **2/3 direct and 1/3 around** through bus 2. At 300 MW, Gen 1 would put 200 MW on line 1–3, over its limit. To stay within the
     flow limits, the LP backs Gen 1 down and runs the **expensive Gen 2 at 150 MW** instead of 0 (cost \\$10,500).
 
     And the LMP at bus 3 is **\\${lmp['bus 3']:.0f}/MWh**: *higher than either generator’s offer*.
@@ -1356,7 +1385,7 @@ def _(mo, pd, three_bus):
                     r"""
     ## Following the flows: superposition
 
-    Power takes **every path**, split by reactance. With identical lines, the direct line
+    Power takes **every path**, split by reactance (a line’s resistance to flow). With identical lines, the direct line
     has half the reactance of the two-line detour, so it carries **2/3**; the detour carries **1/3**.
     Treat each generator’s power as its own trip to bus 3, then add the trips:
     """
@@ -1364,7 +1393,7 @@ def _(mo, pd, three_bus):
                 trips,
                 mo.md(
                     r"""
-    On line 1–2 the two trips go in **opposite directions** and cancel.
+    On line 1–2 the two trips go in **opposite directions** and cancel. That is a coincidence of this dispatch (150 MW each), not a rule: with unequal outputs, line 1–2 carries flow.
 
     **Why Gen 1 stops at 150 MW.** Line 1–3 carries $\tfrac23 p_1 + \tfrac13 p_2 \le 150$ with $p_1 + p_2 = 300$,
     so $p_1 \le 150$. Every MW from Gen 1 loads the limited line twice as hard as a MW from Gen 2.
