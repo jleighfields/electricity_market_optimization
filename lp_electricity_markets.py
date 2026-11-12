@@ -1058,8 +1058,8 @@ def _(go, mo, show_chart, three_bus):
 
     As a pure **network flow**, Gen 1 would serve all 300 MW: 150 MW direct and
     150 MW around through bus 2 (cost \\$6,000, price \\$20 everywhere).
-    Kirchhoff’s law forbids that routing, so the LP uses **150 MW from each**
-    (cost \\$10,500).
+    But Kirchhoff’s law splits the flow, so that cheapest dispatch would overload line 1–3. To stay within the
+    flow limits, the LP backs Gen 1 down and runs the **expensive Gen 2 at 150 MW** instead of 0 (cost \\$10,500).
 
     And the LMP at bus 3 is **\\${lmp['bus 3']:.0f}/MWh**: *higher than either generator’s offer*.
     """
