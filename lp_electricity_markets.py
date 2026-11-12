@@ -708,9 +708,24 @@ def _(demand_slider, go, mo, pd, show_chart):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
+def _(demand_slider, merit, mo):
+    def bidding_slide(demand):
+        """Awards and payments for the demand set on the merit-order slide."""
+        marginal = merit[merit["end"] >= demand].iloc[0]
+        price = marginal["cost"]
+        rows = []
+        for _, u in merit.iterrows():
+            awarded = min(max(demand - u["start"], 0), u["capacity"])
+            if u["unit"] == marginal["unit"]:
+                rows.append(f"| **{u['unit']}** | **{u['cost']}** | **{awarded:.0f} of {u['capacity']}** (marginal) "
+                            f"| {price} | {price - u['cost']} |")
+            elif awarded > 0:
+                rows.append(f"| {u['unit']} | {u['cost']} | {awarded:.0f} | {price} | {price - u['cost']} |")
+            else:
+                rows.append(f"| {u['unit']} | {u['cost']} | 0 | — | — |")
+        table = "\n    ".join(rows)
+        return mo.md(
+            rf"""
     ## How generators bid, get awarded, and get paid
 
     1. **Bid:** each generator offers a supply curve, a list of steps like *“200 MW at \$25/MWh.”*
@@ -720,18 +735,16 @@ def _(mo):
 
     | Unit | Offer (\$/MWh) | Awarded (MW) | Paid (\$/MWh) | Margin (\$/MWh) |
     |:---|:---|:---|:---|:---|
-    | Wind | 5 | 200 | 35 | 30 |
-    | Nuclear | 12 | 250 | 35 | 23 |
-    | Coal | 25 | 200 | 35 | 10 |
-    | **Gas CC** | **35** | **170 of 200** (marginal) | 35 | 0 |
-    | Peaker | 80 | 0 | — | — |
+    {table}
 
-    *Demand 820 MW.* Since it is paid the clearing price whatever it bids, a small generator’s best strategy is to
-    **bid its true marginal cost**.
+    *Demand {demand} MW, from the slider on the previous slide.* Since it is paid the clearing price whatever it bids,
+    a small generator’s best strategy is to **bid its true marginal cost**.
 
     <small>**Terms** — **marginal cost**: cost of one more MWh &ensp;|&ensp; **Gas CC**: efficient combined-cycle plant &ensp;|&ensp; **peaker**: runs only at peaks &ensp;|&ensp; **small**: can’t move the price</small>
     """
-    )
+        )
+
+    bidding_slide(demand_slider.value)
     return
 
 
