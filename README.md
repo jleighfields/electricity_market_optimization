@@ -1,16 +1,31 @@
 # LP in electricity markets presentations
 
-Two marimo notebooks that present as slides, with live LP/MILP demos (PyPSA + HiGHS, SciPy `linprog`).
+Two slide decks and a standalone demo, all [marimo](https://marimo.io) notebooks, with live LP/MILP demos
+(PyPSA + HiGHS, SciPy `linprog`). Contributor conventions (Claude Code included) are in `CLAUDE.md`.
+
+## Repository layout
+
+| Path | What |
+|:---|:---|
+| `lp_electricity_markets.py` | Main deck: short-term markets |
+| `lp_planning.py` | Companion deck (work in progress): mid- and long-term planning |
+| `optimality_gap_demo.py` | Standalone notebook, not a deck: watch a unit commitment MILP's optimality gap close |
+| `*.html` | Static exports of the notebooks above (see below) |
+| `layouts/` | marimo slides layout for each deck |
+| `assets/` | All data, so the talks run offline (table below); `assets/raw/` is git-ignored |
+| `scripts/build_data.py` | Downloads and rebuilds the data in `assets/` |
+| `scripts/capture_ercot_map.py` | Captures the ERCOT LMP map used on the slides |
+| `scripts/build_gap_trace.py` | Re-runs `optimality_gap_demo.py` and saves its trace for the main deck |
+| `CLAUDE.md` | Conventions and the after-every-change checklist |
 
 ## `lp_electricity_markets.py`: short-term markets
 
-
-- merit order and single-bus economic dispatch
-- two-bus congestion and three-bus loop flow (DC-OPF)
-- maps of US plants, ISOs/RTOs, WECC balancing authorities and the western grid
+- maps of US plants, ISOs/RTOs, WECC balancing authorities and the western grid, and how the map becomes buses and lines
+- merit order and economic dispatch as an LP; a 24-hour day with a duck curve, ramp limits and a battery
+- two-bus congestion, three-bus loop flow and negative prices (DC-OPF)
 - DC-OPF prices on a 5,076-bus western grid model
 - co-optimized energy and reserves
-- 24-hour unit commitment MILP, the convex-hull view of why MILPs lack duals, and uplift
+- 24-hour unit commitment MILP, the convex-hull view of why MILPs lack duals, uplift, and the optimality gap
 - LSE portfolio hedging on real CAISO prices: CVaR-limited hedging LP with fixed-price contracts, price sensitivity,
   and the highest acceptable price for bilateral offers, read from the solved LP
 - glossary, sources and live ISO price-map links in the appendix
@@ -46,6 +61,7 @@ uv run marimo run lp_planning.py                  # the planning deck
 ```bash
 uv run marimo export html lp_electricity_markets.py -o lp_electricity_markets.html
 uv run marimo export html lp_planning.py -o lp_planning.html
+uv run marimo export html optimality_gap_demo.py -o optimality_gap_demo.html
 ```
 
 This produces one self-contained file (~8 MB) that opens in any browser with no Python.
@@ -59,8 +75,10 @@ because there's no kernel to re-solve the LPs.
 | `plants.parquet` | 14,063 operating plants (EIA-860, 2025) | PUDL, Catalyst Cooperative |
 | `us_states.geojson` | Lower-48 state outlines | US Census cartographic boundaries |
 | `western_16h_model.json` | 5,076-bus western grid model | Microsoft GridSFM (Hugging Face, MIT) |
-| `western_opf_*.parquet` | Stored DC-OPF result (LMPs, line flows) | Written by the notebook on first run |
-| `ercot_rtm_lmp_*.png` | Fallback ERCOT LMP map | ercot.com (the slide fetches a live one when online) |
+| `western_opf_*.parquet`, `western_opf_timing.json` | Stored DC-OPF result (LMPs, line flows, path prices) and its solve time | Written by the notebook on first run |
+| `ercot_best*.png`, `ercot_best.json` | ERCOT real-time LMP map (most congested interval captured) and its prices | ercot.com, via `scripts/capture_ercot_map.py` |
+| `ercot_rtm_lmp_*.png` | Fallback ERCOT LMP map | ercot.com |
+| `uc_gap_trace.parquet`, `uc_gap_result.json` | Optimality-gap convergence trace for the main deck | `scripts/build_gap_trace.py` |
 | `pge_hourly.parquet` | Hourly PG&E DLAP day-ahead price (with energy/congestion/loss parts), PG&E-area load, CAISO solar; Jan 2024 – Oct 2026 | CAISO OASIS; EIA-930 via PUDL |
 | `raw/caiso_oasis/` | Monthly OASIS downloads behind `pge_hourly.parquet` | CAISO OASIS |
 
@@ -68,9 +86,10 @@ To refresh the downloaded data: `uv run python scripts/build_data.py` (or one st
 `plants`, `states`, `grid`, `pge`). OASIS only keeps about three years of prices and
 throttles bursts of requests, so the `pge` step pauses between months (~15 min) and
 resumes from `raw/caiso_oasis/` if interrupted.
-To re-solve the western OPF (~40 s), delete `assets/western_opf_*.parquet` and rerun the notebook.
+To re-solve the western OPF (~40 s), delete `assets/western_opf_*.parquet` and `western_opf_timing.json`, then rerun the notebook.
+To refresh the gap trace (~30 s): `uv run python scripts/build_gap_trace.py`.
 
-The ERCOT bar chart is a fixed snapshot (interval ending 01:45, 10 Nov 2026).
+The ERCOT bar chart is a fixed snapshot (interval ending 04:45, 11 Nov 2026, the same interval as the map).
 
 ## Further reading
 
