@@ -1195,14 +1195,14 @@ def _(mo):
     $$
 
     - **One balance constraint per bus**, so **one price per bus**: the *locational marginal price* (LMP).
-    - $A$ is the network’s **incidence matrix**: $A_{n\ell} = +1$ if line $\ell$ starts at bus $n$, $-1$ if it ends
-      there, $0$ otherwise. So $\sum_\ell A_{n\ell} f_\ell$ is the **net flow out of bus $n$**.
-    - **Summed over buses**, each column of $A$ sums to 0 (each line leaves one bus and enters another), so total generation
-      = total load automatically. One angle is fixed as the reference, $\theta_{\text{ref}} = 0$.
-    - Flows follow linearized physics (reactances $x_\ell$, angles $\theta$), or $f = \text{PTDF}\cdot\text{injections}$. Real AC power
-      flow is nonconvex; this “DC” approximation keeps it an LP.
+    - $A$ is the **incidence matrix** ($A_{n\ell} = +1$ if line $\ell$ starts at bus $n$, $-1$ if it ends there), so
+      $\sum_\ell A_{n\ell} f_\ell$ is the **net flow out of bus $n$**. One angle is the reference, $\theta_{\text{ref}} = 0$.
+    - **Why angles?** Each bus’s voltage is a 60 Hz wave; $\theta_n$ is how far ahead it runs. Power flows from the leading bus
+      to the lagging one: more for a bigger lead, less for a higher reactance $x_\ell$ (like current = voltage difference / resistance).
+      One angle per bus, shared by all its lines, fixes every flow, so power can’t be routed. (Exact AC flow is nonconvex;
+      this “DC” linearization keeps it an LP.)
 
-    <small>**Terms** — $n$: bus &ensp;|&ensp; $\lambda_n$: LMP at bus $n$ &ensp;|&ensp; $G(n)$: generators at bus $n$ &ensp;|&ensp; $D_n$: load at bus $n$ &ensp;|&ensp; $f_\ell$: MW on line $\ell$, from bus $a(\ell)$ to $b(\ell)$ &ensp;|&ensp; $\theta_n$: voltage angle at bus $n$ &ensp;|&ensp; $F_\ell$: line limit &ensp;|&ensp; $\mu_\ell$: value of 1 MW more line capacity &ensp;|&ensp; **PTDF**: MW on a line per MW injected at a bus &ensp;|&ensp; **injection**: generation − load at a bus</small>
+    <small>**Terms** — $n$: bus &ensp;|&ensp; $\lambda_n$: LMP at bus $n$ &ensp;|&ensp; $G(n)$: generators at bus $n$ &ensp;|&ensp; $D_n$: load at bus $n$ &ensp;|&ensp; $f_\ell$: MW on line $\ell$, from bus $a(\ell)$ to $b(\ell)$ &ensp;|&ensp; $\theta_n$: voltage angle at bus $n$ &ensp;|&ensp; $F_\ell$: line limit &ensp;|&ensp; $\mu_\ell$: value of 1 MW more line capacity &ensp;|&ensp; $x_\ell$: reactance, the line’s resistance to power flow</small>
     """
     )
     return
