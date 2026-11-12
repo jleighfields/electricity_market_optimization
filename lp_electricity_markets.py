@@ -1200,7 +1200,12 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
                 mo.md("## A negative price: more load, lower cost"),
                 mo.hstack(
                     [
-                        mo.vstack([show_chart(fig, 380), bus1_load_switch]),
+                        mo.vstack([show_chart(fig, 330), bus1_load_switch, mo.md(r"""
+    <small>Real negative prices usually come from wind and solar with production tax credits or from inflexible
+    units; this one comes purely from **Kirchhoff’s law**. Example from the PyPSA docs,
+    [“Negative LMPs from Line Congestion”](https://docs.pypsa.org/latest/examples/negative-prices-kvl-baker/), after
+    [K. Baker](https://github.com/kyribaker/3bus_LMPs); see [Baker & Gangammanavar (2024)](https://doi.org/10.48550/arXiv.2403.19032).</small>
+    """)]),
                         mo.md(
                             f"""
     Line 1–3 is limited to **10 MW**. As a pure **network flow**, cheap Gen1 would serve all 100 MW at Bus3,
@@ -1208,17 +1213,14 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
     2/3 MW on line 1–3, from Gen2 only 1/3. To stay within the flow limit, the **cheapest unit runs at 0** and the
     **expensive Gen3 runs at {output['Gen3']:.0f} MW** instead of 0 (cost **\\${n.objective:,.0f}**{saved}).
 
+    **Why not back Gen2 down so Gen1 can run?** Per MW of line 1–3, Gen2 delivers 3 MW (saving 3 × \\$80 = \\$240 on Gen3),
+    Gen1 only 1.5 MW (1.5 × \\$90 = \\$135). The swap (Gen1 +1, Gen2 −2, Gen3 +1) costs $10 - 40 + 100 =$ **+\\$70**: Gen1’s
+    reduced cost, $c_1 - \\lambda_1 = 10 - (-60)$.
+
     The LMP at Bus1 is **{dollars(lmp['Bus1'], escape=True)}/MWh**. One more MWh of load at Bus1 *pulls flow back*
     against the congested line, letting the system shift **+2 MWh to Gen2, −1 MWh from Gen3**:
     $2(20) - 1(100) = -60$. Flip the switch to re-solve.
 
-    Real negative prices usually come from wind and solar with production tax credits or from
-    inflexible units; this one comes purely from **Kirchhoff’s law** and a congested line.
-
-    <small>Example from the PyPSA docs, [“Negative LMPs from Line Congestion”](https://docs.pypsa.org/latest/examples/negative-prices-kvl-baker/),
-    reproducing [K. Baker, *3bus_LMPs*](https://github.com/kyribaker/3bus_LMPs); see
-    [Baker & Gangammanavar (2024)](https://doi.org/10.48550/arXiv.2403.19032),
-    “Locational marginal prices obey DC circuit laws.”</small>
     """
                         ),
                     ],
