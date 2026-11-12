@@ -169,12 +169,12 @@ def _(mo):
     | | Section | What it covers | The optimization idea |
     |:---|:---|:---|:---|
     | 1 | [**Electricity markets 101**](#/3) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
-    | 2 | [**Economic dispatch**](#/11) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/20) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves and capacity**](#/37) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
-    | 5 | [**Unit commitment**](#/45) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/54) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/68) | Additional topics, a summary, glossary and sources | — |
+    | 2 | [**Economic dispatch**](#/12) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
+    | 3 | [**Adding the network**](#/21) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves and capacity**](#/38) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
+    | 5 | [**Unit commitment**](#/46) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/55) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/69) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -352,18 +352,23 @@ def _(terms, WEST, base_map, mo, plant_trace, plants, show_map):
         "TPWR", "WACM", "WALC", "WAUW", "WWA",
     ]
 
-    def wecc_map_slide():
+    def add_ba_plants(fig):
+        """Western plants, the 12 largest BAs (by capacity) in color, the rest in gray."""
         west = plants[plants.ba.isin(WECC_BAS)]
         top = west.groupby("ba").capacity_mw.sum().nlargest(12).index
         colors = [
             "#E73F74", "#3969AC", "#E68310", "#11A579", "#7F3C8D", "#F2B701",
             "#80BA5A", "#008695", "#CF1C90", "#4B4B8F", "#A5AA99", "#8B5A2B",
         ]
-
-        fig = base_map(**WEST, height=540)
         fig.add_trace(plant_trace(west[~west.ba.isin(top)], "Other WECC BAs", "#B8B2A3"))
         for ba, color in zip(top, colors):
             fig.add_trace(plant_trace(west[west.ba == ba], ba, color))
+        return west
+
+    def wecc_map_slide():
+        west = plants[plants.ba.isin(WECC_BAS)]
+        fig = base_map(**WEST, height=540)
+        add_ba_plants(fig)
 
         return mo.vstack(
             [
@@ -392,14 +397,15 @@ def _(terms, WEST, base_map, mo, plant_trace, plants, show_map):
         )
 
     mo.vstack([wecc_map_slide(), terms(r"**dispatch**: setting each running unit’s MW output &ensp;|&ensp; **imbalance**: actual supply or demand minus its schedule &ensp;|&ensp; **WECC**: the Western Interconnection’s reliability council &ensp;|&ensp; **day-ahead market**: clears tomorrow’s hourly schedule today")])
-    return
+    return (add_ba_plants,)
 
 
 @app.cell(hide_code=True)
 def _(terms, ASSETS, WEST, base_map, go, json, mo, show_map):
     western = json.loads((ASSETS / "western_16h_model.json").read_text())
 
-    def transmission_map_slide(model):
+    def add_lines(fig, model, muted=False):
+        """Draw the model's lines by voltage class; muted = thin gray, for use under other layers."""
         bus = {b["bus_i"]: b for b in model["bus"].values()}
         classes = [  # (label, min kV, color, width), drawn low voltage first
             ("< 100 kV", 0, "#D5CFC2", 0.5),
@@ -418,13 +424,20 @@ def _(terms, ASSETS, WEST, base_map, go, json, mo, show_map):
             segments[label][0].extend([a["lon"], b["lon"], None])
             segments[label][1].extend([a["lat"], b["lat"], None])
             n_lines += 1
-
-        fig = base_map(**WEST, height=555)
-        for label, _, color, width in classes:
+        for label, min_kv, color, width in classes:
             xs, ys = segments[label]
-            fig.add_trace(go.Scattergl(x=xs, y=ys, mode="lines", name=label,
-                                       line=dict(color=color, width=width),
-                                       hoverinfo="skip"))
+            if muted and min_kv < 200:
+                continue  # keep only the 200 kV+ grid under other layers
+            fig.add_trace(go.Scattergl(
+                x=xs, y=ys, mode="lines", name=label, hoverinfo="skip",
+                showlegend=not muted,
+                line=dict(color="#6F6F6F" if muted else color, width=width * (0.8 if muted else 1)),
+                opacity=0.7 if muted else 1))
+        return n_lines
+
+    def transmission_map_slide(model):
+        fig = base_map(**WEST, height=555)
+        n_lines = add_lines(fig, model)
 
         return mo.vstack(
             [
@@ -455,7 +468,44 @@ def _(terms, ASSETS, WEST, base_map, go, json, mo, show_map):
         )
 
     mo.vstack([transmission_map_slide(western), terms(r"**bus**: a network node, a substation at one voltage, where lines, generators and loads connect &ensp;|&ensp; **kV**: kilovolts &ensp;|&ensp; **reactance** $x_\ell$: how strongly a line resists AC flow &ensp;|&ensp; **DC-OPF**: the dispatch LP plus network constraints (coming up)")])
-    return (western,)
+    return add_lines, western
+
+
+@app.cell(hide_code=True)
+def _(WEST, add_ba_plants, add_lines, base_map, mo, show_map, western):
+    def combined_map_slide():
+        fig = base_map(**WEST, height=555)
+        add_lines(fig, western, muted=True)    # the network (gray, 200 kV and up)
+        west = add_ba_plants(fig)              # the plants, colored by balancing authority
+
+        return mo.vstack(
+            [
+                mo.md("## Putting it together: plants, BAs and the wires between them"),
+                mo.hstack(
+                    [
+                        show_map(fig),
+                        mo.md(
+                            f"""
+    **{len(west):,} plants** ({west.capacity_mw.sum() / 1e3:,.0f} GW) in **{west.ba.nunique()} BAs**,
+    tied together by one synchronized network.
+
+    Big plants often sit **far from load** (hydro on the Columbia, coal and wind in the
+    Rockies, solar in the desert), and the high-voltage lines carry their output to the cities.
+
+    BA boundaries are lines on a map; **power ignores them**. Every BA’s flows share the same wires,
+    which is why the market LPs coming up need the network.
+
+    <small>Gray: lines 200 kV and up (GridSFM). Plants: EIA-860 (2025) via PUDL, colored as on the BA map.</small>
+    """
+                        ),
+                    ],
+                    widths=[2.2, 1],
+                ),
+            ]
+        )
+
+    combined_map_slide()
+    return
 
 
 @app.cell(hide_code=True)
@@ -2755,12 +2805,12 @@ def _(terms, cvar_slider, fair_values, hedge_lp, hedges, mo):
             if mw < 0.5:
                 decision = f"Decline; counter at \\${accept:.2f} or less"
             elif mw > cap - 0.5:
-                decision = f"Take all {cap} MW; would pay up to \\${accept:.2f}"
+                decision = f"Take all {cap} MW"
             else:
-                decision = "Buying some: indifferent at the margin"
+                decision = "Buy some: indifferent"
             rows.append(
                 f"    | **{name}** | \\${fair_values[k]:.2f} | \\${offered:.2f} | {mw:,.0f} | "
-                f"**\\${accept:.2f}** | {decision} |"
+                f"**\\${accept:.2f}** | +\\${accept - fair_values[k]:.2f} | {decision} |"
             )
         table = "\n".join(rows)
 
@@ -2770,22 +2820,22 @@ def _(terms, cvar_slider, fair_values, hedge_lp, hedges, mo):
                     r"""
     ## At what price would we accept an offer?
 
-    The solved LP answers this directly, in three steps:
-
-    1. **Reduced cost** $\bar c_k$: how much expected cost would rise if we forced in one more MW of contract $k$.
-       Positive: not worth buying at this price &ensp;|&ensp; zero: bought, and worth exactly its price &ensp;|&ensp; negative: we’d buy more if allowed.
+    1. **Reduced cost** $\bar c_k$: how much expected cost would rise if we forced in one more MW of contract $k$
+       (positive: not worth it; zero: bought at the margin; negative: we’d buy more if allowed).
     2. **Sensitivity** $\Delta_k$: how much $\bar c_k$ rises when the contract price rises \$1/MWh (the contract’s MWh, weighted for risk).
     3. **Highest acceptable price**: start from the offered price $K_k$ and move it until $\bar c_k = 0$: $\;K_k^{\star} = K_k - \bar c_k / \Delta_k$ is the most we’d pay.
     """
                 ),
                 mo.md(
                     f"""
-    | Contract | Forecast value | Offered price $K_k$ | LSE buys (MW) | Accept at or below $K_k^\\star$ | Decision |
-    |:---|:---|:---|:---|:---|:---|
+    | Contract | Forecast value | Offered $K_k$ | Buys (MW) | Highest price $K_k^\\star$ | Risk premium | Decision |
+    |:---|:---|:---|:---|:---|:---|:---|
 {table}
 
+    **Risk premium** = $K_k^\\star$ − forecast value: the value of cutting cost in the *worst* months (the CVaR tail). Zero if the CVaR limit doesn’t bind.
+
     <small>At CVaR ≤ \\${cvar_limit:.2f}M; prices in \\$/MWh. $\\Delta_k = \\mathbb{{E}}[\\text{{MWh}}_k] + \\sum_s |y_s|\\,\\text{{MWh}}_{{sk}}$ ($\\text{{MWh}}_{{sk}}$: in scenario $s$).
-    $y_s$: dual of the CVaR LP’s row $\\eta_s \\ge C_s - z$ ($z$: free threshold, $\\eta_s$: excess): extra weight the risk limit puts on month $s$, nonzero only in the worst months, summing to the price of risk. Exact for small changes; next slide re-solves.</small>
+    $y_s$: dual of the CVaR LP’s row $\\eta_s \\ge C_s - z$ ($z$: free threshold, $\\eta_s$: excess): extra weight the risk limit puts on month $s$, nonzero only in the worst months, summing to the price of risk. Linear estimate; next slide re-solves.</small>
     """
                 ),
             ]
@@ -2833,6 +2883,9 @@ def _(
         if accept_premium is not None:
             fig.add_vline(accept_premium, line=dict(color="#E73F74", dash="dash", width=2),
                           showlegend=True, name="Highest acceptable price, from the solved LP")
+            fig.add_annotation(x=accept_premium, y=0.5, yref="paper", xanchor="right",
+                               text=f"risk premium<br>+${accept_premium:.2f}/MWh ", showarrow=False,
+                               bgcolor="#F7F5EF", font=dict(color="#E73F74", size=13))
         fig.update_xaxes(title="Fixed price above forecast value ($/MWh)")
         fig.update_yaxes(title="MW the LSE buys")
 
