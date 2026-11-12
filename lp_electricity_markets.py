@@ -775,7 +775,7 @@ def _(mo):
         r"""
     # 3 · Adding the network
 
-    **So far:** one bus, one price, as if power could reach anyone for free.
+    **So far:** one bus, one price, as if any generator could serve any customer, with no transmission limits.
 
     **But:** power travels over lines with limits, and it follows physics, not contracts. When a line fills up, cheap power can’t reach everyone.
 
