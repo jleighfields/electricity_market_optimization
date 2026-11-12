@@ -165,12 +165,12 @@ def _(mo):
     | | Section | What it covers | The optimization idea |
     |:---|:---|:---|:---|
     | 1 | [**Electricity markets 101**](#/3) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
-    | 2 | [**Economic dispatch**](#/12) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/21) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves**](#/38) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
-    | 5 | [**Unit commitment**](#/42) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/51) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/65) | Additional topics, a summary, glossary and sources | — |
+    | 2 | [**Economic dispatch**](#/12) | The merit order, why every generator is paid the same price, and a day with ramp limits and a battery | LP; the price **is** the dual |
+    | 3 | [**Adding the network**](#/25) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves**](#/42) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
+    | 5 | [**Unit commitment**](#/46) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/55) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/69) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -777,7 +777,7 @@ def _(terms, QUIET, merit, mo, np, pd, pypsa):
 
     mo.vstack([mo.md("## Code: economic dispatch as a PyPSA LP, every hour of a day"), mo.show_code(),
                terms(r"**PyPSA**: Python power-system modeling library &ensp;|&ensp; **HiGHS**: open-source LP/MILP solver &ensp;|&ensp; `merit`: the 5 offers from the merit-order slide &ensp;|&ensp; `p_nom` = $\overline P_i$<br>**snapshot**: one time step (here an hour) &ensp;|&ensp; `day_demand`: 24 hourly demands $D_t$ (MW) &ensp;|&ensp; `wind_avail`, `solar_avail` → `p_max_pu`: available share of the plant’s 200 MW")])
-    return day_demand, day_dispatch, day_hours
+    return day_demand, day_dispatch, day_hours, solar_avail, wind_avail
 
 
 @app.cell(hide_code=True)
@@ -812,6 +812,154 @@ def _(day_demand, day_dispatch, day_hours, go, make_subplots, mo, show_chart):
         ])
 
     day_dispatch_slide()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## Linking the hours: ramp limits and a battery
+
+    $$
+    \begin{aligned}
+    \min\quad & \textstyle\sum_t \sum_i c_i\, p_{i,t} && & \color{#6A7179}\text{cost of the whole day} \\
+    \text{s.t.}\quad & \textstyle\sum_i p_{i,t} + p^{\text{dis}}_t - p^{\text{ch}}_t = D_t && (\lambda_t) & \color{#6A7179}\text{supply = demand, every hour} \\
+    & {-R_i} \le p_{i,t} - p_{i,t-1} \le R_i && & \color{#6A7179}\text{ramp limit: MW change per hour} \\
+    & e_t = e_{t-1} + \eta\, p^{\text{ch}}_t - p^{\text{dis}}_t / \eta, \quad 0 \le e_t \le E && & \color{#6A7179}\text{battery state of charge} \\
+    & 0 \le p^{\text{ch}}_t,\, p^{\text{dis}}_t \le P^{B}, \quad e_{24} = e_0 && & \color{#6A7179}\text{power limit; end the day as it began}
+    \end{aligned}
+    $$
+
+    | Unit | Max | Min | Ramp $R_i$ | | Battery | |
+    |:---|---:|---:|---:|:---|:---|:---|
+    | Nuclear | 250 MW | **200 MW** (80%) | 10 MW/h | | Power $P^B$ | 100 MW |
+    | Coal | 200 MW | 80 MW | 30 MW/h | | Energy $E$ | 400 MWh (4 hours) |
+    | Gas CC | 200 MW | 40 MW | 60 MW/h | | Efficiency $\eta$ | 92% each way (85% round trip) |
+
+    Plus the min/max and wind/solar limits from before; the peaker (0–150 MW) can ramp fully in an hour. Before, the day was **24 separate LPs**; ramp and storage rows **couple the hours** into one LP.
+
+    <small>**Terms** — **ramp rate**: how fast a unit can change output &ensp;|&ensp; $p^{\text{ch}}_t, p^{\text{dis}}_t$: battery charging, discharging (MW) &ensp;|&ensp; $e_t$: energy stored (MWh) &ensp;|&ensp; $E$, $P^B$: battery energy and power limits &ensp;|&ensp; **round trip**: share of energy stored that comes back out ($0.92^2$) &ensp;|&ensp; mins assume the units are already on (unit commitment, section 5)</small>
+    """
+    )
+    return
+
+
+@app.cell
+def _(QUIET, day_demand, day_hours, merit, mo, pd, pypsa, solar_avail, terms, wind_avail):
+    flex = pd.DataFrame({  # shares of each unit's capacity
+        "unit": ["Nuclear", "Coal", "Gas CC", "Peaker"],
+        "p_min_pu": [0.8, 0.4, 0.2, 0.0],    # nuclear may dip to 80% (200 MW), but no lower
+        "ramp_pu": [0.04, 0.15, 0.3, 1.0],   # MW/h ÷ capacity: nuclear 10, coal 30, CC 60, peaker 150
+    }).set_index("unit")
+
+    def day_dispatch_flex(battery=True):
+        """The same day as one linked LP: minimum outputs, ramp limits and (optionally) a battery."""
+        n = pypsa.Network()
+        n.set_snapshots(day_hours)
+        n.add("Bus", "grid")
+        for _, g in merit.iterrows():
+            limits = {}
+            if g["unit"] in flex.index:      # P̲_i and −R_i ≤ p_it − p_i,t−1 ≤ R_i
+                f = flex.loc[g["unit"]]
+                limits = dict(p_min_pu=f.p_min_pu, ramp_limit_up=f.ramp_pu, ramp_limit_down=f.ramp_pu)
+            n.add("Generator", g["unit"], bus="grid", p_nom=g["capacity"], marginal_cost=g["cost"],
+                  p_max_pu=wind_avail if g["unit"] == "Wind" else 1.0, **limits)
+        n.add("Generator", "Solar", bus="grid", p_nom=200, marginal_cost=0, p_max_pu=solar_avail)
+        if battery:                          # 100 MW × 4 h = 400 MWh, 92% each way, e_24 = e_0
+            n.add("StorageUnit", "Battery", bus="grid", p_nom=100, max_hours=4, efficiency_store=0.92,
+                  efficiency_dispatch=0.92, cyclic_state_of_charge=True)
+        n.add("Load", "demand", bus="grid", p_set=day_demand)
+        n.optimize(solver_name="highs", solver_options=QUIET)
+        return n                             # battery: n.storage_units_t.p (+ discharge, − charge)
+
+    mo.vstack([mo.md("## Code: the linked day, with ramp limits and a battery"), mo.show_code(),
+               terms(r"`p_min_pu`, `ramp_limit_up/down`: $\underline P_i$ and $R_i$ as shares of `p_nom` &ensp;|&ensp; **StorageUnit**: PyPSA’s battery, with $p^{\text{ch}}_t, p^{\text{dis}}_t, e_t$ &ensp;|&ensp; `max_hours`: $E / P^B$ &ensp;|&ensp; `cyclic_state_of_charge`: $e_{24} = e_0$")])
+    return (day_dispatch_flex,)
+
+
+@app.cell(hide_code=True)
+def _(day_demand, day_dispatch, day_dispatch_flex, day_hours, go, make_subplots, mo, show_chart):
+    def flex_day_slide():
+        n = day_dispatch_flex()
+        dispatch = n.generators_t.p.clip(lower=0) + 0.0
+        battery = n.storage_units_t.p["Battery"]
+        price = n.buses_t.marginal_price["grid"]
+        price_before = day_dispatch().buses_t.marginal_price["grid"]
+
+        fig = make_subplots(3, 1, shared_xaxes=True, row_heights=[0.58, 0.24, 0.18], vertical_spacing=0.05)
+        colors = {"Solar": "#E8C547", "Wind": "#5B9A6B", "Nuclear": "#8A6FB0", "Coal": "#6A6A6A",
+                  "Gas CC": "#2F4A7A", "Peaker": "#E07A1F"}
+        for name, color in colors.items():
+            fig.add_scatter(x=day_hours, y=dispatch[name], name=name, stackgroup="dispatch", mode="none",
+                            line=dict(shape="hv"), fillcolor=color,
+                            hovertemplate=f"{name}: %{{y:.0f}} MW<extra></extra>", row=1, col=1)
+        fig.add_scatter(x=day_hours, y=battery.clip(lower=0) + 0.0, name="Battery", stackgroup="dispatch",
+                        mode="none", line=dict(shape="hv"), fillcolor="#3E8FB0",
+                        hovertemplate="Battery: %{y:.0f} MW<extra></extra>", row=1, col=1)
+        fig.add_scatter(x=day_hours, y=day_demand - battery.clip(upper=0), name="Demand + charging", mode="lines",
+                        line=dict(shape="hv", color="#3E8FB0", width=2.5, dash="dash"),
+                        hovertemplate="Demand + charging: %{y:.0f} MW<extra></extra>", row=1, col=1)
+        fig.add_scatter(x=day_hours, y=day_demand, name="Demand", mode="lines",
+                        line=dict(shape="hv", color="black", width=2.5),
+                        hovertemplate="Demand: %{y:.0f} MW<extra></extra>", row=1, col=1)
+        fig.add_scatter(x=day_hours, y=price_before, name="λ, hours independent", mode="lines",
+                        line=dict(shape="hv", color="#9A9A9A", width=1.5, dash="dot"),
+                        hovertemplate="independent: $%{y:.0f}/MWh<extra></extra>", row=2, col=1)
+        fig.add_scatter(x=day_hours, y=price, name="λ, linked day", mode="lines",
+                        line=dict(shape="hv", color="#A84F0A", width=2),
+                        hovertemplate="linked: $%{y:.0f}/MWh<extra></extra>", row=2, col=1)
+        fig.add_scatter(x=day_hours, y=n.storage_units_t.state_of_charge["Battery"], name="Stored (MWh)",
+                        mode="lines", line=dict(color="#3E8FB0", width=2), showlegend=False,
+                        hovertemplate="Stored: %{y:.0f} MWh<extra></extra>", row=3, col=1)
+        fig.update_yaxes(title="MW", range=[0, 1000], row=1, col=1)
+        fig.update_yaxes(title="$/MWh", range=[0, 90], row=2, col=1)
+        fig.update_yaxes(title="MWh", range=[0, 420], row=3, col=1)
+        fig.update_xaxes(title="Hour", dtick=2, row=3, col=1)
+
+        return mo.vstack([
+            mo.md("## The linked day: the battery shifts cheap energy into the evening peak"),
+            show_chart(fig, 470, legend=dict(orientation="h", x=0.01, y=1.0, yanchor="bottom", font=dict(size=12))),
+            mo.md(r"<small>Top: dispatch. When generation rises above demand (black) to the dashed line, the excess charges the battery; in the evening the battery discharges to meet demand. "
+                  r"Middle: price $\lambda_t$, now vs. the 24 independent hours. Bottom: energy stored in the battery.</small>"),
+        ])
+
+    flex_day_slide()
+    return
+
+
+@app.cell(hide_code=True)
+def _(day_dispatch_flex, mo):
+    def flex_reading_slide():
+        n, n0 = day_dispatch_flex(), day_dispatch_flex(battery=False)
+        price = n.buses_t.marginal_price["grid"]
+        avail = n0.generators.p_nom["Wind"] * n0.generators_t.p_max_pu["Wind"]
+        curtailed = (avail - n0.generators_t.p["Wind"]).clip(lower=0).sum()
+        battery = n.storage_units_t.p["Battery"]
+        buy = (price * -battery.clip(upper=0)).sum() / -battery.clip(upper=0).sum()
+        sell = (price * battery.clip(lower=0)).sum() / battery.clip(lower=0).sum()
+        coal = n.generators_t.p["Coal"]
+        return mo.md(
+            f"""
+    ## Reading the result: what linking the hours changes
+
+    | | Ramps only | Ramps + battery |
+    |:---|---:|---:|
+    | Cost of the day | \\${n0.objective:,.0f} | **\\${n.objective:,.0f}** |
+    | Wind curtailed overnight | {curtailed:,.0f} MWh | **0** |
+    | Peaker energy | {n0.generators_t.p["Peaker"].sum():,.0f} MWh | **{n.generators_t.p["Peaker"].sum():,.0f}** |
+
+    - **Nuclear dips to its 200 MW floor** overnight and climbs back 10 MW an hour. Without the battery, nuclear, coal and the CC are all at their minimums, so the LP **curtails wind** and the price falls to wind’s \\$5.
+    - **The battery buys low and sells high**: it charges on night wind and noon solar at about **\\${buy:.0f}**/MWh and discharges into the evening at about **\\${sell:.0f}**. With 85% round trip, selling pays whenever the price beats the buying price ÷ 0.85 (\\${buy:.0f} ÷ 0.85 ≈ \\${buy / 0.85:.0f}).
+    - **Ramp limits bind**: coal climbs only 30 MW/h from noon, so the gas CC fills in; after 9 pm coal can’t ramp down fast enough
+      ({coal.iloc[21]:.0f} → {coal.iloc[22]:.0f} → {coal.iloc[23]:.0f} MW), and at 22:00 **λ = \\${price.iloc[22]:.0f}, below coal’s \\$25 offer**. No unit offers \\${price.iloc[22]:.0f}: the ramp-row duals move part of the price to the neighboring hours.
+    - KKT for unit $i$ now reads $c_i = \\lambda_t - \\overline\\mu_{{i,t}} + \\underline\\mu_{{i,t}} + (\\text{{ramp duals at }} t \\text{{ and }} t{{+}}1)$: **each hour’s price depends on the others.**
+
+    <small>**Terms** — **curtail**: use less wind or solar than the weather allows &ensp;|&ensp; **ramp-row duals**: shadow prices of the ramp limits, nonzero only when a unit is ramping as fast as it can</small>
+    """
+        )
+
+    flex_reading_slide()
     return
 
 
