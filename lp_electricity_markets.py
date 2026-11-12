@@ -170,11 +170,11 @@ def _(mo):
     |:---|:---|:---|:---|
     | 1 | [**Electricity markets 101**](#/3) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
     | 2 | [**Economic dispatch**](#/11) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/20) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves and capacity**](#/37) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
-    | 5 | [**Unit commitment**](#/45) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/54) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/68) | Additional topics, a summary, glossary and sources | — |
+    | 3 | [**Adding the network**](#/22) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves and capacity**](#/39) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
+    | 5 | [**Unit commitment**](#/47) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/56) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/70) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -761,6 +761,68 @@ def _(demand_slider, mo, single_bus):
         )
 
     single_bus_slide(demand_slider.value)
+    return
+
+
+@app.cell
+def _(terms, QUIET, merit, mo, np, pd, pypsa):
+    # A made-up day: demand peaks in the evening; wind is strongest at night, solar at noon
+    day_hours = pd.RangeIndex(24, name="hour")
+    day_demand = 600 + 180 * np.sin((day_hours - 10) * np.pi / 12) + 50 * np.sin((day_hours - 14) * np.pi / 6)
+    wind_avail = 0.55 + 0.35 * np.cos((day_hours - 2) * np.pi / 12)   # share of wind’s 200 MW (0–1)
+    solar_avail = np.clip(np.sin((day_hours - 6) * np.pi / 12), 0, None)  # sunrise 6:00, sunset 18:00
+
+    def day_dispatch():
+        """One economic-dispatch LP per hour: min Σ_t Σ_i c_i p_it  s.t.  Σ_i p_it = D_t (λ_t)."""
+        n = pypsa.Network()
+        n.set_snapshots(day_hours)                # 24 snapshots → 24 balance constraints, duals λ_t
+        n.add("Bus", "grid")
+        for _, g in merit.iterrows():             # the same 5 offers as before, plus solar below
+            n.add("Generator", g["unit"], bus="grid", p_nom=g["capacity"], marginal_cost=g["cost"],
+                  p_max_pu=wind_avail if g["unit"] == "Wind" else 1.0)   # wind: at most what blows
+        n.add("Generator", "Solar", bus="grid", p_nom=200, marginal_cost=0,  # new: 200 MW of solar,
+              p_max_pu=solar_avail)                                        # free to run, sun-limited
+        n.add("Load", "demand", bus="grid", p_set=day_demand)   # D_t, one value per hour
+        n.optimize(solver_name="highs", solver_options=QUIET)
+        return n
+
+    mo.vstack([mo.md("## Code: the same LP for every hour of a day"), mo.show_code(),
+               terms(r"**snapshot**: one time step (here an hour) &ensp;|&ensp; `day_demand`: 24 hourly demands $D_t$ (MW) &ensp;|&ensp; `wind_avail`, `solar_avail`: available output as a share of each plant’s 200 MW, $\overline P^{\,\text{avail}}_{jt} / 200$ &ensp;|&ensp; `p_max_pu`: per-unit upper bound")])
+    return day_demand, day_dispatch, day_hours
+
+
+@app.cell(hide_code=True)
+def _(day_demand, day_dispatch, day_hours, go, make_subplots, mo, show_chart):
+    def day_dispatch_slide():
+        n = day_dispatch()
+        dispatch = n.generators_t.p.clip(lower=0) + 0.0
+        price = n.buses_t.marginal_price["grid"]
+
+        fig = make_subplots(2, 1, shared_xaxes=True, row_heights=[0.72, 0.28], vertical_spacing=0.08)
+        colors = {"Solar": "#E8C547", "Wind": "#5B9A6B", "Nuclear": "#8A6FB0", "Coal": "#6A6A6A", "Gas CC": "#2F4A7A", "Peaker": "#E07A1F"}
+        for name, color in colors.items():    # stacked cheapest first, so the top layer is the marginal unit
+            fig.add_scatter(x=day_hours, y=dispatch[name], name=name, stackgroup="dispatch", mode="none",
+                            line=dict(shape="hv"), fillcolor=color,
+                            hovertemplate=f"{name}: %{{y:.0f}} MW<extra></extra>", row=1, col=1)
+        fig.add_scatter(x=day_hours, y=day_demand, name="Demand", mode="lines",
+                        line=dict(shape="hv", color="black", width=2.5),
+                        hovertemplate="Demand: %{y:.0f} MW<extra></extra>", row=1, col=1)
+        fig.add_scatter(x=day_hours, y=price, name="Price λ<sub>t</sub>", mode="lines", showlegend=False,
+                        line=dict(shape="hv", color="#A84F0A", width=2),
+                        hovertemplate="λ = $%{y:.0f}/MWh<extra></extra>", row=2, col=1)
+        fig.update_yaxes(title="MW", range=[0, 1000], row=1, col=1)
+        fig.update_yaxes(title="λ<sub>t</sub> ($/MWh)", range=[0, 90], row=2, col=1)
+        fig.update_xaxes(title="Hour", dtick=2, row=2, col=1)
+
+        return mo.vstack([
+            mo.md("## A day of dispatch: supply stacks up to demand every hour"),
+            show_chart(fig, 450, legend=dict(orientation="h", x=0.01, y=1.0, yanchor="bottom")),
+            mo.md(r"<small>Each hour the LP fills demand (black line) from the bottom of the merit order up. "
+                  r"Whichever unit is on top, only partly used, is marginal and sets that hour’s price $\lambda_t$ (bottom panel). "
+                  r"Solar (\$0) and wind (\$5) come first whenever available; as the sun sets into the evening peak, gas and the peaker fill in and the price jumps.</small>"),
+        ])
+
+    day_dispatch_slide()
     return
 
 
