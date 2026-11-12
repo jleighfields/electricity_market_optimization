@@ -1960,7 +1960,7 @@ def _(mo):
     \text{s.t.}\quad & \sum_i p_i = D && (\lambda) & \color{#6A7179}\text{supply = demand} \\
     & \sum_i r_i \ge R^{\text{req}} && (\sigma) & \color{#6A7179}\text{hold at least }R^{\text{req}}\text{ MW in reserve} \\
     & p_i + r_i \le \overline P_i && (\overline\mu_i) & \color{#6A7179}\text{energy + reserve fit in each unit} \\
-    & p_i \ge \underline P_i,\quad r_i \ge 0 && & \color{#6A7179}\text{online dispatchable units}
+    & p_i \ge \underline P_i,\quad r_i \ge 0 && (\underline\mu_i) & \color{#6A7179}\text{each online dispatchable unit}
     \end{aligned}
     $$
 
@@ -1969,7 +1969,7 @@ def _(mo):
     - **Reserve price = $\sigma$**, the dual of the requirement.
     - **Coupling:** a MW held in reserve can’t produce energy, so when reserves are scarce the energy price rises too.
 
-    <small>**Terms** — $i$: all units (wind and solar serve load but hold no reserve here) &ensp;|&ensp; $p_i, c_i$: energy output and offer, $\lambda$: energy price, as before &ensp;|&ensp; $\sigma$: reserve price (\$/MW per hour) &ensp;|&ensp; $r_i$: MW of reserve from unit $i$ &ensp;|&ensp; $b_i$: its reserve offer (\$/MW per hour) &ensp;|&ensp; $R^{\text{req}}$: required reserve (MW) &ensp;|&ensp; **net load**: load minus wind and solar output &ensp;|&ensp; $\overline\mu_i$ here prices the shared limit $p_i + r_i \le \overline P_i$</small>
+    <small>**Terms** — $i$: all units, as before; $j$: the wind and solar units, which serve load but hold no reserve here ($r_j = 0$) &ensp;|&ensp; $p_i, c_i$: energy output and offer, $\lambda$: energy price, as before &ensp;|&ensp; $\sigma$: reserve price (\$/MW per hour) &ensp;|&ensp; $r_i$: MW of reserve from unit $i$ &ensp;|&ensp; $b_i$: its reserve offer (\$/MW per hour) &ensp;|&ensp; $R^{\text{req}}$: required reserve (MW) &ensp;|&ensp; **net load**: load minus wind and solar output &ensp;|&ensp; $\overline\mu_i$ here prices the shared limit $p_i + r_i \le \overline P_i$; $\underline\mu_i$: dual of the minimum</small>
     """
     )
     return
@@ -1991,7 +1991,7 @@ def _(mo):
 
     **Example: a coal unit held at its minimum** $\underline P_i$ earns $\lambda$ per MWh; its headroom $\overline P_i - \underline P_i$ can be **spinning reserve**, earning $\sigma$ per MW.
 
-    - **Opportunity cost:** for a unit providing both, KKT stationarity gives $\sigma - b_i = \lambda - c_i$. The reserve
+    - **Opportunity cost:** for a unit providing both, KKT stationarity gives $\sigma - b_i = \lambda - c_i + \underline\mu_i$ ($\underline\mu_i = 0$ above the minimum). The reserve
       price pays for the energy margin the unit gives up by holding back, which is why the two prices move together.
     - **Below cost:** if $\lambda$ is less than the unit’s cost at its minimum ($\underline\mu_i > 0$), its market revenue
       falls short, and that shortfall is what **uplift** covers.
@@ -2643,7 +2643,7 @@ def _(
     together (daily correlation **{corr:.2f}**). Every MWh not covered by a contract is bought at that price.
 
     **The tools:** a flat forward fixes the price on the same MW every hour; an on-peak block covers 6:00–22:00;
-    a solar PPA delivers at midday, when power is cheapest, so it hedges the least.
+    a solar PPA delivers at midday, when power is cheapest, so each MW covers few of the expensive evening hours.
     """
                 ),
                 terms(r"**exposed energy / open position**: load not covered by contracts, bought at the market price"),
@@ -3089,7 +3089,7 @@ def _(terms, cvar_slider, fair_values, hedge_lp, hedges, mo):
     |:---|:---|:---|:---|:---|:---|:---|
 {table}
 
-    **Risk premium** = $K_k^\\star$ − forecast value: the value of cutting cost in the *worst* months (the CVaR tail). Zero if the CVaR limit doesn’t bind.
+    **Risk premium** = $K_k^\\star$ − forecast value: the value of cutting cost in the *worst* months (the CVaR tail). Zero until the CVaR limit binds; then it jumps, and grows only by cents as the limit tightens.
 
     <small>At CVaR ≤ \\${cvar_limit:.2f}M; prices in \\$/MWh. $\\Delta_k = \\mathbb{{E}}[\\text{{MWh}}_k] + \\sum_s |y_s|\\,\\text{{MWh}}_{{sk}}$ ($\\text{{MWh}}_{{sk}}$: in scenario $s$).
     $y_s$: dual of the CVaR LP’s row $\\eta_s \\ge C_s - z$ ($z$: free threshold, $\\eta_s$: excess): extra weight the risk limit puts on month $s$, nonzero only in the worst months, summing to the price of risk. Linear estimate; next slide re-solves.</small>
@@ -3098,7 +3098,7 @@ def _(terms, cvar_slider, fair_values, hedge_lp, hedges, mo):
             ]
         )
 
-    mo.vstack([acceptance_slide(cvar_slider.value), terms(r"$\mathbb{E}$: average over the 200 scenarios &ensp;|&ensp; $\text{MWh}_k$: energy 1 MW of contract $k$ delivers &ensp;|&ensp; **forecast value**: mean price over those MWh &ensp;|&ensp; **counter**: offer a lower price")])
+    mo.vstack([acceptance_slide(cvar_slider.value), terms(r"$\mathbb{E}$: average over the 200 scenarios &ensp;|&ensp; $\text{MWh}_k$: energy 1 MW of contract $k$ delivers &ensp;|&ensp; **forecast value**: mean price over those MWh &ensp;|&ensp; **counter**: offer less")])
     return
 
 
@@ -3162,7 +3162,7 @@ def _(
                     "A seller has its own floor (for a solar developer, its cost of building and running "
                     "the plant). **Any price between the seller’s floor and the LSE’s highest acceptable price "
                     "beats no deal for both sides**; the LP tells the LSE where its end of that range is. "
-                    "Tightening the CVaR limit raises that price, but only slightly here (cents, for solar): "
+                    "Once the CVaR limit binds, tightening it further raises that price only slightly here (cents, for solar): "
                     "these contracts add little risk reduction at the margin."
                 ),
             ]
@@ -3230,7 +3230,7 @@ def _(mo):
 
     | LP concept | Electricity market meaning |
     |:---|:---|
-    | Objective | Total production cost (welfare) |
+    | Objective | Total production cost (= max welfare when demand is fixed) |
     | Equality constraint | Supply = demand at each bus |
     | Inequality constraints | Generator limits, line limits, reserve requirements |
     | Dual variable | Price (LMP), congestion, reserve and capacity prices; price of risk |
