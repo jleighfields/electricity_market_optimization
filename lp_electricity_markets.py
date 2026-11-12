@@ -769,7 +769,7 @@ def _(mo):
     \end{aligned}
     $$
 
-    - $p_i$: output of generator $i$ (MW), the decision &ensp;|&ensp; $c_i$: its offer (\$/MWh) &ensp;|&ensp; $D$: demand
+    - $p_i$: output of generator $i$ (MW), the decision &ensp;|&ensp; $c_i$: its offer (\$/MWh) &ensp;|&ensp; $D$: demand &ensp;|&ensp; **size**: 5 units → 5 variables, 1 equality
     - **Dual variables** (in parentheses, all in \$/MWh): $\lambda$ prices the supply = demand constraint;
       $\overline\mu_i \ge 0$ and $\underline\mu_i \ge 0$ price unit $i$’s maximum and minimum. Each is zero
       unless its constraint binds.
@@ -780,7 +780,7 @@ def _(mo):
 
     Substituting $p_i = \underline P_i + \delta_i$ leaves a **continuous knapsack**: filling cheapest-first (the merit order) is provably optimal.
 
-    <small>**Terms** — **online**: committed (on) this interval &ensp;|&ensp; **curtail**: use less wind or solar than the weather allows &ensp;|&ensp; $i$ indexes all units (so $\sum_i p_i$ includes wind and solar); $j$ marks the wind and solar units, whose upper limit is $\overline P^{\,\text{avail}}_j$ &ensp;|&ensp; $\delta_i \ge 0$: output above the minimum &ensp;|&ensp; **size**: one variable per unit (5 on the merit-order slide), one equality, two bounds each</small>
+    <small>**Terms** — **online**: committed (on) this interval &ensp;|&ensp; **curtail**: use less wind or solar than the weather allows &ensp;|&ensp; $i$ indexes all units (so $\sum_i p_i$ includes wind and solar); $j$ marks the wind and solar units, whose upper limit is $\overline P^{\,\text{avail}}_j$ &ensp;|&ensp; $\delta_i \ge 0$: output above the minimum</small>
     """
     )
     return
