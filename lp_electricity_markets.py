@@ -158,7 +158,7 @@ def _(ASSETS, json, mo, plants):
         texas = plants[plants.ba == "ERCO"]
         return mo.vstack(
             [
-                mo.md("## Every 5 minutes, hundreds of power plants act as one"),
+                mo.md("## Every 5 minutes, hundreds of power plants are coordinated"),
                 mo.hstack(
                     [
                         mo.image((ASSETS / "ercot_best_map.png").read_bytes(), width=430, style={"background": "white", "padding": "4px", "border-radius": "4px"}),
