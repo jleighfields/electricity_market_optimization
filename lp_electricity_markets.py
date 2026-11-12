@@ -1210,7 +1210,7 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
                             f"""
     Line 1–3 is limited to **10 MW**. As a pure **network flow**, cheap Gen1 would serve all 100 MW at Bus3,
     90 of it around through Bus2 (cost \\$1,000). But Kirchhoff’s law splits the flow: each MW from Gen1 puts
-    2/3 MW on line 1–3, from Gen2 only 1/3. To stay within the flow limit, the **cheapest unit runs at 0** and the
+    2/3 MW on line 1–3; each MW from Gen2 puts only 1/3 MW on it. To stay within the flow limit, the **cheapest unit runs at 0** and the
     **expensive Gen3 runs at {output['Gen3']:.0f} MW** instead of 0 (cost **\\${n.objective:,.0f}**{saved}).
 
     **Why not back Gen2 down so Gen1 can run?** Per MW of line 1–3, Gen2 delivers 3 MW (saving 3 × \\$80 = \\$240 on Gen3),
