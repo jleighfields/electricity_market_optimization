@@ -777,7 +777,7 @@ def _(mo):
 
     **So far:** one bus, one price, as if any generator could serve any customer, with no transmission limits.
 
-    **But:** power travels over lines with limits, and it follows physics, not contracts. When a line fills up, cheap power can’t reach everyone.
+    **But:** power travels over lines with limits, and it follows physics, not contracts. When a line reaches its capacity limit, cheap power can’t reach everyone.
 
     **Next:** add the network: a min-cost flow problem plus Kirchhoff’s law, which gives one price per location (the LMP).
     """
