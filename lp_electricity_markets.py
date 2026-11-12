@@ -77,6 +77,13 @@ def _():
         fig.update_yaxes(**axis)
         return mo.ui.plotly(fig, config={"displaylogo": False})
 
+    def total_cost(cost, base_cost, switched):
+        """The LP's total cost, shown next to a load switch; with the switch on, the change it caused."""
+        change = cost - base_cost
+        sign = "+" if change >= 0 else "−"
+        extra = f" &ensp;({sign}\\${abs(change):,.0f} for the extra MWh)" if switched else ""
+        return mo.md(f"**Total cost: \\${cost:,.0f}**{extra}")
+
     demand_slider = mo.ui.slider(
         100, 1000, step=10, value=820, label="Demand (MW)", show_value=True
     )
@@ -84,6 +91,7 @@ def _():
         10, 200, step=10, value=100, label="Line limit (MW)", show_value=True
     )
     bus1_load_switch = mo.ui.switch(label="Add 1 MW of load at Bus 1")
+    bus3_load_switch = mo.ui.switch(label="Add 1 MW of load at Bus 3")
     contract_dropdown = mo.ui.dropdown(
         options=["Flat forward", "On-peak forward", "Solar PPA"], value="Solar PPA", label="Contract"
     )
@@ -105,6 +113,7 @@ def _():
         ASSETS,
         QUIET,
         bus1_load_switch,
+        bus3_load_switch,
         demand_slider,
         go,
         itertools,
@@ -121,6 +130,7 @@ def _():
         contract_dropdown,
         cvar_slider,
         terms,
+        total_cost,
     )
 
 
@@ -1365,13 +1375,13 @@ def _(limit_slider, mo, two_bus):
 
 @app.cell
 def _(QUIET, mo, pypsa):
-    def three_bus(limit_13=150):
+    def three_bus(limit_13=150, extra_load=0.0):
         """Network flow + one KVL row for the loop: PyPSA Lines obey Kirchhoff, so no routing."""
         n = pypsa.Network()
         n.add("Bus", ["bus 1", "bus 2", "bus 3"])
         n.add("Generator", "Gen 1", bus="bus 1", p_nom=500, marginal_cost=20)   # cheap
         n.add("Generator", "Gen 2", bus="bus 2", p_nom=500, marginal_cost=50)   # expensive
-        n.add("Load", "Load", bus="bus 3", p_set=300)
+        n.add("Load", "Load", bus="bus 3", p_set=300 + extra_load)   # extra_load: the switch on the slide
         # identical reactances x: an injection splits 2/3 on the direct line, 1/3 around
         # the two-line detour. PyPSA adds one KVL constraint for the loop automatically.
         n.add("Line", "1-2", bus0="bus 1", bus1="bus 2", x=0.1, s_nom=1000)  # never binds
@@ -1385,9 +1395,10 @@ def _(QUIET, mo, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(go, lp_size, mo, show_chart, three_bus):
-    def three_bus_slide():
-        n = three_bus()
+def _(bus3_load_switch, go, lp_size, mo, show_chart, three_bus, total_cost):
+    def three_bus_slide(add_load):
+        n = three_bus(extra_load=1.0 if add_load else 0.0)
+        base_cost = three_bus().objective
         lmp = n.buses_t.marginal_price.iloc[0]
         output = n.generators_t.p.iloc[0]
         flows = n.lines_t.p0.iloc[0]
@@ -1424,7 +1435,7 @@ def _(go, lp_size, mo, show_chart, three_bus):
         labels = {
             "bus 1": f"Bus 1<br>Gen 1 ($20)<br>runs {output['Gen 1']:.0f} of 500 MW",
             "bus 2": f"Bus 2<br>Gen 2 ($50)<br>runs {output['Gen 2']:.0f} of 500 MW",
-            "bus 3": "Bus 3<br>Load 300 MW",
+            "bus 3": f"Bus 3<br>Load {n.loads.p_set.sum():.0f} MW",
         }
         for bus, (x, y) in pos.items():
             fig.add_annotation(x=x, y=y - 0.32 if y == 0 else y + 0.18,
@@ -1435,14 +1446,26 @@ def _(go, lp_size, mo, show_chart, three_bus):
                                  mode="markers", marker=dict(size=30, color="#14213D"),
                                  hoverinfo="skip", showlegend=False))
         fig.update_xaxes(range=[-0.9, 2.9], visible=False)
-        fig.update_yaxes(range=[-0.9, 2.3], visible=False)
+        fig.update_yaxes(range=[-1.25, 2.3], visible=False)
+        flow_12 = abs(flows["1-2"])
+        if flow_12 < 0.5:
+            line_12 = ("**Why is line 1–2 at 0 MW?** Each generator sends 1/3 of its output around the loop: Gen 1’s "
+                       f"{output['Gen 1'] / 3:.0f} MW go 1→2, Gen 2’s {output['Gen 2'] / 3:.0f} MW go 2→1, and they cancel.")
+        else:
+            line_12 = (f"**Line 1–2 now carries {flow_12:.0f} MW:** Gen 1’s detour ({output['Gen 1'] / 3:.0f} MW) and "
+                       f"Gen 2’s ({output['Gen 2'] / 3:.0f} MW) no longer cancel.")
 
         return mo.vstack(
             [
                 mo.md("## A price above every offer: LMP higher than either generator’s cost"),
                 mo.hstack(
                     [
-                        mo.vstack([show_chart(fig, 400), mo.md(f"<small>{lp_size(n)}</small>")]),
+                        mo.vstack([
+                            show_chart(fig, 390),
+                            mo.hstack([bus3_load_switch, total_cost(n.objective, base_cost, add_load)],
+                                      justify="start", gap=2, align="center"),
+                            mo.md(f"<small>{lp_size(n)}</small>"),
+                        ]),
                         mo.md(
                             f"""
     Three identical lines; only line 1–3 is limited, to **150 MW**. As a pure **network flow**, cheap Gen 1 would serve
@@ -1453,10 +1476,10 @@ def _(go, lp_size, mo, show_chart, three_bus):
 
     **Why not run Gen 1 at 300 MW?** It would put 2/3 × 300 = 200 MW on line 1–3, over its 150 MW limit.
 
-    **Why is line 1–2 at 0 MW?** Each generator sends 1/3 of its output around the loop: Gen 1’s 50 MW go 1→2,
-    Gen 2’s 50 MW go 2→1, and they cancel. With unequal outputs, line 1–2 would carry flow.
+    {line_12}
 
-    The LMP at bus 3 is **\\${lmp['bus 3']:.0f}/MWh**: *higher than either generator’s offer*.
+    The LMP at bus 3 is **\\${lmp['bus 3']:.0f}/MWh**: *higher than either generator’s offer*. Flip the switch:
+    one more MWh at bus 3 raises the total cost by exactly that much.
     """
                         ),
                     ],
@@ -1465,7 +1488,7 @@ def _(go, lp_size, mo, show_chart, three_bus):
             ]
         )
 
-    three_bus_slide()
+    three_bus_slide(bus3_load_switch.value)
     return
 
 
@@ -1585,9 +1608,10 @@ def _(QUIET, mo, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(terms, baker_three_bus, bus1_load_switch, go, lp_size, mo, show_chart):
+def _(terms, baker_three_bus, bus1_load_switch, go, lp_size, mo, show_chart, total_cost):
     def negative_price_slide(add_load):
         n = baker_three_bus(1.0 if add_load else 0.0)
+        base_cost = baker_three_bus().objective
         lmp = n.buses_t.marginal_price.iloc[0]
         output = n.generators_t.p.iloc[0]
         flows = n.lines_t.p0.iloc[0]
@@ -1626,7 +1650,7 @@ def _(terms, baker_three_bus, bus1_load_switch, go, lp_size, mo, show_chart):
             fig.add_trace(go.Scatter(x=[x], y=[y], mode="markers", hoverinfo="skip", showlegend=False,
                                      marker=dict(size=28, color="#E73F74" if lmp[bus] < 0 else "#14213D")))
         fig.update_xaxes(range=[-1.0, 3.0], visible=False)
-        fig.update_yaxes(range=[-0.9, 2.5], visible=False)
+        fig.update_yaxes(range=[-1.3, 2.5], visible=False)
 
         saved = ", **\\$60 less**" if add_load else ""
         return mo.vstack(
@@ -1634,7 +1658,10 @@ def _(terms, baker_three_bus, bus1_load_switch, go, lp_size, mo, show_chart):
                 mo.md("## A negative price: more load, lower cost"),
                 mo.hstack(
                     [
-                        mo.vstack([show_chart(fig, 330), bus1_load_switch, mo.md(rf"""
+                        mo.vstack([show_chart(fig, 330),
+                                   mo.hstack([bus1_load_switch, total_cost(n.objective, base_cost, add_load)],
+                                             justify="start", gap=2, align="center"),
+                                   mo.md(rf"""
     <small>Real negative prices usually come from wind and solar with production tax credits or from inflexible
     units; this one comes purely from **Kirchhoff’s law**. Example from the PyPSA docs,
     [“Negative LMPs from Line Congestion”](https://docs.pypsa.org/latest/examples/negative-prices-kvl-baker/), after
