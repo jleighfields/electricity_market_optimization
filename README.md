@@ -15,6 +15,12 @@ Two marimo notebooks that present as slides, with live LP/MILP demos (PyPSA + Hi
   and the highest acceptable price for bilateral offers, read from the solved LP
 - glossary, sources and live ISO price-map links in the appendix
 
+## `optimality_gap_demo.py`: unit commitment and the optimality gap
+
+A standalone notebook (not part of the slides): builds a unit commitment MILP (10–80 units, 24–72 hours),
+solves it with HiGHS, and plots the best solution and best bound over time, so you can watch the gap close.
+Run it with `uv run marimo run optimality_gap_demo.py`; pick the size, time limit and target gap, then press **Solve**.
+
 ## `lp_planning.py`: mid- and long-term planning (work in progress)
 
 - the missing-money problem, resource adequacy approaches, and the ISO's capacity demand curve
