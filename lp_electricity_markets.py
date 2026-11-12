@@ -1214,11 +1214,12 @@ def _(mo):
     | Sources, sinks | Generators (with costs $c_i$), loads $D_n$ |
     | Flow conservation at each node | Supply = demand at each bus: the LMP constraints $(\lambda_n)$ |
     | Arc capacities | Line limits $-F_\ell \le f_\ell \le F_\ell$ $(\mu_\ell)$ |
+    | *(none)* | **Kirchhoff’s voltage law** around each loop: $\sum_{\ell \in \text{loop}} \pm\, x_\ell\, f_\ell = 0$ |
 
     On its own, that is a **min-cost transshipment problem** (a *transport model*): power could follow the
     cheapest path, as on controllable HVDC links.
 
-    **Kirchhoff’s voltage law** adds one *side constraint* per loop (a row beyond conservation and capacity, so it’s no longer a pure network-flow LP), $\sum_{\ell \in \text{loop}} \pm\, x_\ell\, f_\ell = 0$
+    **Kirchhoff’s voltage law** (last row) adds one *side constraint* per loop, a row beyond conservation and capacity, so it’s no longer a pure network-flow LP
     (equivalently $f_\ell = (\theta_{a(\ell)} - \theta_{b(\ell)})/x_\ell$). Power then **splits across every parallel
     path in inverse proportion to reactance** and can’t be routed. Still an LP, but the constraint
     matrix loses total unimodularity. Next: on two buses (one path, no loop) KVL adds nothing, so both models agree; on a three-bus loop, KVL splits the flow and they don’t.
@@ -1305,28 +1306,60 @@ def _(terms, go, limit_slider, lp_size, mo, show_chart, two_bus):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-    ## Reading the duals (line limit = 100 MW)
+def _(limit_slider, mo, two_bus):
+    def duals_slide(line_limit):
+        """The duals of the two-bus LP at the line limit set on the previous slide."""
+        n = two_bus(line_limit)
+        output = n.generators_t.p.iloc[0]
+        lmp = n.buses_t.marginal_price.iloc[0]
+        l1, l2 = lmp["bus 1"], lmp["bus 2"]
+        flow = n.lines_t.p0.iloc[0, 0]
+        mu = abs(float(n.model.constraints["Line-fix-s-upper"].dual.values.ravel()[0]))
+        paid = 150 * l2
+        received = l1 * output["Gen A"] + l2 * output["Gen B"]
+        rent = paid - received
+        tex = lambda x: f"{x:,.0f}".replace(",", "{,}")       # thousands separator inside math
+        if mu > 1e-6:
+            rows = [
+                "Gen A has spare capacity, so one more MWh at bus 1 costs \\$20.",
+                "The line is at capacity, so one more MWh at bus 2 must come from Gen B.",
+                f"Each extra MW of line capacity saves \\${mu:.0f}, and $\\lambda_2 - \\lambda_1 = \\mu_\\ell$.",
+                f"Loads pay $150 \\times {l2:.0f} = {tex(paid)}$; generators receive ${tex(received)}$. The ISO "
+                f"collects the difference, ${l2 - l1:.0f} \\times {flow:.0f}$ (price spread × MW on the line).",
+            ]
+            ftr = f"here a {flow:.0f} MW FTR pays it \\${rent:,.0f}."
+        else:
+            rows = [
+                "Gen A has spare capacity, so one more MWh at bus 1 costs \\$20.",
+                "The line has room, so Gen A serves bus 2 too: one more MWh there also costs \\$20.",
+                "The line is below its limit, so more capacity saves nothing.",
+                f"Loads pay $150 \\times {l2:.0f} = {tex(paid)}$, and generators receive all of it: same price everywhere.",
+            ]
+            ftr = "with no congestion, an FTR pays nothing this hour."
+        return mo.md(
+            rf"""
+    ## Reading the duals (line limit = {line_limit:.0f} MW)
 
     | Dual | Value | Meaning |
     |:---|:---|:---|
-    | $\lambda_1$ | **\$20** | Gen A has spare capacity, so one more MWh at bus 1 costs \$20. |
-    | $\lambda_2$ | **\$50** | The line is at capacity, so one more MWh at bus 2 must come from Gen B. |
-    | $\mu_\ell$ | **\$30** | Each extra MW of line capacity saves \$30, and $\lambda_2 - \lambda_1 = \mu_\ell$. |
-    | Congestion rent | **\$3,000** | Loads pay $150 \times 50 = 7{,}500$; generators receive $4{,}500$. The ISO collects the difference, $30 \times 100$, and pays it out (below). |
+    | $\lambda_1$ | **\${l1:.0f}** | {rows[0]} |
+    | $\lambda_2$ | **\${l2:.0f}** | {rows[1]} |
+    | $\mu_\ell$ | **\${mu:.0f}** | {rows[2]} |
+    | Congestion rent | **\${rent:,.0f}** | {rows[3]} |
 
-    **LMP = energy price + congestion price** (+ losses, in real markets).
+    **LMP = energy price + congestion price** (+ losses, in real markets). A tighter line keeps the spread at \$30
+    but carries fewer MW, so the rent (spread × flow) falls even as total cost rises.
 
-    **Who gets the \$3,000?** The ISO passes it on to holders of **financial transmission rights**
+    **Who gets the rent?** The ISO passes it on to holders of **financial transmission rights**
     (FTRs; *congestion revenue rights* in CAISO and ERCOT, *TCCs* in NYISO). An FTR for $X$ MW from bus 1 to bus 2
     pays $X(\lambda_2 - \lambda_1)$ every hour. Rights are allocated or auctioned, mostly to LSEs and other
-    transmission customers, so an LSE at bus 2 can **hedge congestion**: here a 100 MW FTR pays it \$3,000.
+    transmission customers, so an LSE at bus 2 can **hedge congestion**: {ftr}
 
     <small>**Terms** — $\lambda_1, \lambda_2$: LMPs at buses 1 and 2 &ensp;|&ensp; $\mu_\ell$: dual of the line’s limit &ensp;|&ensp; **LSE** (load-serving entity): utility or retailer that buys wholesale power for its customers &ensp;|&ensp; **hedge**: contract that offsets a price risk &ensp;|&ensp; **losses**: energy lost as heat on lines, the third part of an LMP</small>
     """
-    )
+        )
+
+    duals_slide(limit_slider.value)
     return
 
 
