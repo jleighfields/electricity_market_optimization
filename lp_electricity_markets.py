@@ -168,17 +168,17 @@ def _(ASSETS, json, mo, plants):
     Every 5 minutes, each plant gets an **instruction** (a MW target) and a **price** for its location:
     here from **−\\${-best["node_min"]:.0f}** to **\\${best["node_max"]:.0f}/MWh**.
 
-    **How?** One **optimization problem**: the instructions are its **solution**, the prices its **dual variables**.
+    **How?** One **optimization problem**: instructions are its **solution**, prices its **dual variables**.
 
     **How big?** A rough estimate for one 5-minute solve:
 
     | | Variables | Constraints |
     |:---|---:|---:|
-    | ~1,500 units × (10 offer steps + 5 reserves) | 22,000 | 6,000 |
-    | ~16,700 buses, ~30,000 lines | 47,000 | 47,000 |
-    | **Total** | **~70,000** | **~50,000** |
+    | ~1,500 units × (10 offer steps + 5 reserves) | 22,500 | 6,000 |
+    | ~16,700 buses, ~31,000 lines, limits | 31,000 | 93,300 |
+    | **Total** | **~55,000** | **~100,000** |
 
-    Plus line limits for every possible outage: millions in principle, but only the few that bind are added.
+    ~5× our western model (0.2 s in HiGHS): about a second. Outage limits (millions possible) are added only if they bind.
     """
                         ),
                     ],
@@ -186,7 +186,7 @@ def _(ASSETS, json, mo, plants):
                     align="center",
                 ),
                 mo.md("<small>ERCOT real-time LMP map, 11 Nov 2026, 04:45. Plants: EIA-860 (2025) via PUDL. Buses: Baker Institute (2024); "
-                      "unit, line and reserve counts are rough estimates (ERCOT co-optimizes energy and 5 reserve products in real time since Dec 2025).</small>"),
+                      "units, lines and reserves (co-optimized since Dec 2025) are rough estimates, counted like our western model; ERCOT’s solver uses shift factors instead.</small>"),
             ]
         )
 
