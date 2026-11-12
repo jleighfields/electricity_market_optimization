@@ -1470,23 +1470,63 @@ def _(go, lp_size, mo, show_chart, three_bus):
 
 
 @app.cell(hide_code=True)
-def _(mo, pd, three_bus):
+def _(make_subplots, mo, np, show_chart, three_bus):
     def loop_flow_slide():
         n = three_bus()
         g1, g2 = n.generators_t.p.iloc[0][["Gen 1", "Gen 2"]]
-        # identical lines: an injection reaching bus 3 sends 2/3 on its direct line
-        # and 1/3 around the other two lines
-        rows = {  # MW on each line from each generator's trip to the load (+ = arrow direction)
-            "Line 1→3": (2 / 3 * g1, 1 / 3 * g2),
-            "Line 2→3": (1 / 3 * g1, 2 / 3 * g2),
-            "Line 1→2": (1 / 3 * g1, -1 / 3 * g2),
-        }
-        trips = mo.md(
-            f"| Flow on | Gen 1’s {g1:.0f} MW, bus 1 → load at bus 3 | Gen 2’s {g2:.0f} MW, bus 2 → load at bus 3 "
-            "| Total flow |\n|:---|:---|:---|:---|\n"
-            + "\n".join(f"| **{line}** | {a:+.0f} MW | {b:+.0f} MW | **{a + b:.0f} MW** |"
-                        for line, (a, b) in rows.items())
-        )
+        limit_13 = n.lines.s_nom["1-3"]
+        bus = {1: (0.0, 0.0), 2: (2.0, 0.0), 3: (1.0, 1.5)}
+        centroid = np.mean(list(bus.values()), axis=0)
+        # identical lines: an injection reaching bus 3 sends 2/3 on its direct line and 1/3 around
+        # the other two lines. Each trip lists (from bus, to bus, MW); the total adds them line by line.
+        trip1 = [(1, 3, 2 / 3 * g1), (1, 2, 1 / 3 * g1), (2, 3, 1 / 3 * g1)]
+        trip2 = [(2, 3, 2 / 3 * g2), (2, 1, 1 / 3 * g2), (1, 3, 1 / 3 * g2)]
+        net = {(1, 3): 0.0, (2, 3): 0.0, (1, 2): 0.0}
+        for a, b, mw in trip1 + trip2:
+            key = (a, b) if (a, b) in net else (b, a)
+            net[key] += mw if (a, b) == key else -mw
+        total = [(a, b, mw) if mw >= 0 else (b, a, -mw) for (a, b), mw in net.items()]
+        panels = [
+            (f"Gen 1’s {g1:.0f} MW: bus 1 → bus 3", trip1, "#2F4A7A"),
+            (f"+ Gen 2’s {g2:.0f} MW: bus 2 → bus 3", trip2, "#5B9A6B"),
+            ("= Total flow on each line", total, "#14213D"),
+        ]
+
+        fig = make_subplots(1, 3, horizontal_spacing=0.04, subplot_titles=[p[0] for p in panels])
+        for col, (_title, flows, color) in enumerate(panels, start=1):
+            ax = "" if col == 1 else str(col)
+            for a, b in [(1, 2), (2, 3), (1, 3)]:                     # the lines, in gray
+                fig.add_scatter(x=[bus[a][0], bus[b][0]], y=[bus[a][1], bus[b][1]], mode="lines",
+                                line=dict(color="#C9C2B0", width=2), hoverinfo="skip", showlegend=False,
+                                row=1, col=col)
+            for a, b, mw in flows:
+                (x0, y0), (x1, y1) = np.array(bus[a]), np.array(bus[b])
+                mid = np.array([(x0 + x1) / 2, (y0 + y1) / 2])
+                out = mid - centroid
+                out = out / np.linalg.norm(out)                          # push labels away from the middle
+                at_limit = col == 3 and {a, b} == {1, 3} and mw >= limit_13 - 1e-6
+                c = "#E07A1F" if at_limit else color
+                if mw < 0.5:
+                    fig.add_annotation(x=mid[0] + 0.28 * out[0], y=mid[1] + 0.28 * out[1], xref=f"x{ax}",
+                                       yref=f"y{ax}", text="0 MW<br>(trips cancel)", showarrow=False,
+                                       font=dict(size=13, color=c))
+                    continue
+                s0, s1 = np.array([x0, y0]) + 0.08 * out, np.array([x1, y1]) + 0.08 * out
+                s0, s1 = s0 + 0.18 * (s1 - s0), s1 - 0.18 * (s1 - s0)   # shorten, keep clear of the buses
+                fig.add_annotation(x=s1[0], y=s1[1], ax=s0[0], ay=s0[1], xref=f"x{ax}", yref=f"y{ax}",
+                                   axref=f"x{ax}", ayref=f"y{ax}", text="", showarrow=True, arrowhead=2,
+                                   arrowsize=1, arrowwidth=1.5 + mw / 40, arrowcolor=c)
+                label = f"<b>{mw:.0f} MW</b>" + ("<br>at limit" if at_limit else "")
+                fig.add_annotation(x=mid[0] + 0.42 * out[0], y=mid[1] + 0.42 * out[1], xref=f"x{ax}",
+                                   yref=f"y{ax}", text=label, showarrow=False, font=dict(size=14, color=c))
+            fig.add_scatter(x=[v[0] for v in bus.values()], y=[v[1] for v in bus.values()],
+                            mode="markers+text", text=["Bus 1", "Bus 2", "Bus 3 · load 300"],
+                            textposition=["bottom center", "bottom center", "top center"],
+                            marker=dict(size=16, color="#14213D"), hoverinfo="skip", showlegend=False,
+                            row=1, col=col)
+        fig.update_xaxes(range=[-0.75, 2.75], visible=False)
+        fig.update_yaxes(range=[-0.5, 1.85], visible=False)
+        trips = show_chart(fig, 200, margin=dict(l=10, r=10, t=30, b=10))
 
         return mo.vstack(
             [
@@ -1494,15 +1534,14 @@ def _(mo, pd, three_bus):
                     r"""
     ## Following the flows: superposition
 
-    Power takes **every path**, split by reactance (a line’s resistance to flow). With identical lines, the direct line
-    has half the reactance of the two-line detour, so it carries **2/3**; the detour carries **1/3**.
-    Treat each generator’s power as its own trip to bus 3, then add the trips:
+    Power takes **every path**, split by reactance (resistance to flow): with identical lines, the direct line carries **2/3**
+    and the two-line detour **1/3**. Treat each generator’s power as its own trip to bus 3, then add the trips:
     """
                 ),
                 trips,
                 mo.md(
                     r"""
-    On line 1–2 the two trips go in **opposite directions** and cancel. That is a coincidence of this dispatch (150 MW each), not a rule: with unequal outputs, line 1–2 carries flow.
+    On line 1–2 the trips go in **opposite directions** and cancel: a coincidence of equal outputs, not a rule.
 
     **Why Gen 1 stops at 150 MW.** Line 1–3 carries $\tfrac23 p_1 + \tfrac13 p_2 \le 150$ with $p_1 + p_2 = 300$,
     so $p_1 \le 150$. Every MW from Gen 1 loads the limited line twice as hard as a MW from Gen 2.
