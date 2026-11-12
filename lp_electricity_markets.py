@@ -910,8 +910,8 @@ def _(terms, go, limit_slider, mo, show_chart, two_bus):
         fig.add_annotation(x=1.5, y=0.22, text=f"<b>{flow_label}</b>" if binding else flow_label,
                            showarrow=False, font=dict(size=15, color="#14213D"))
         for x, label in [
-            (0, f"Bus 1<br>Gen A ($20): {output['Gen A']:.0f} MW<br>LMP ${lmp['bus 1']:.0f}"),
-            (3, f"Bus 2<br>Gen B ($50): {output['Gen B']:.0f} MW · Load 150 MW<br>LMP ${lmp['bus 2']:.0f}"),
+            (0, f"Bus 1<br>Gen A ($20): runs {output['Gen A']:.0f} of 200 MW<br>LMP ${lmp['bus 1']:.0f}"),
+            (3, f"Bus 2<br>Gen B ($50): runs {output['Gen B']:.0f} of 200 MW · Load 150 MW<br>LMP ${lmp['bus 2']:.0f}"),
         ]:
             fig.add_annotation(x=x, y=-0.25, text=label.replace("$", "&#36;"),  # no MathJax
                                showarrow=False, yanchor="top",
@@ -1030,8 +1030,8 @@ def _(go, mo, show_chart, three_bus):
                                text=f"<b>{label}</b>" if binding else label, showarrow=False,
                                font=dict(size=15))
         labels = {
-            "bus 1": f"Bus 1<br>Gen 1 ($20): {output['Gen 1']:.0f} MW",
-            "bus 2": f"Bus 2<br>Gen 2 ($50): {output['Gen 2']:.0f} MW",
+            "bus 1": f"Bus 1<br>Gen 1 ($20)<br>runs {output['Gen 1']:.0f} of 500 MW",
+            "bus 2": f"Bus 2<br>Gen 2 ($50)<br>runs {output['Gen 2']:.0f} of 500 MW",
             "bus 3": "Bus 3<br>Load 300 MW",
         }
         for bus, (x, y) in pos.items():
