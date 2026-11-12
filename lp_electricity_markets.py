@@ -973,7 +973,7 @@ def _(day_demand, day_dispatch_flex, day_hours, go, make_subplots, mo, show_char
             show_chart(fig, 430, legend=dict(orientation="h", x=0.01, y=1.0, yanchor="bottom", font=dict(size=12))),
             mo.md(f"**Value of the battery:** the day’s system cost falls from \\${no_battery.objective:,.0f} to "
                   f"\\${n.objective:,.0f}, **\\${saved:,.0f} ({saved / no_battery.objective:.0%}) less**: "
-                  "stored solar replaces curtailment and the \\$80 peaker."),
+                  "solar that would have been curtailed is stored and replaces the \\$80 peaker in the evening."),
             mo.md(r"<small>Top: dispatch. When generation rises above demand (black) to the dashed line, the excess charges the battery; in the evening the battery discharges to meet demand. "
                   r"Middle: price $\lambda_t$ with and without the battery (same ramps and minimums). Bottom: energy stored in the battery.</small>"),
         ])
