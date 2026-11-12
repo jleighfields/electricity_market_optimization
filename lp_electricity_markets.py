@@ -126,7 +126,9 @@ def _(mo):
     1. **An overview of electricity markets:** what is bought and sold, who is involved, and how prices are set.
     2. **Connect the business problems to the math:** each market question turns out to be an LP or MILP you
        already know how to write, and the market prices are its **dual variables**.
-    3. **Build up one step at a time:**
+    3. **The same shape every time:** the objective is to **minimize system cost** (the ISO) or **maximize profit**
+       (a plant owner or utility); **market rules, contracts, plant operating limits and physics** become **constraints**.
+    4. **Build up one step at a time:**
 
     | Step | Business problem | Optimization |
     |:---|:---|:---|
@@ -194,12 +196,12 @@ def _(mo):
     | | Section | What it covers | The optimization idea |
     |:---|:---|:---|:---|
     | 1 | [**Electricity markets 101**](#/4) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how the market runs | — |
-    | 2 | [**Economic dispatch**](#/12) | The merit order, how generators bid and get paid, why everyone gets the same price, and a duck-curve day with ramp limits and a battery | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/27) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves**](#/44) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
-    | 5 | [**Unit commitment**](#/48) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/57) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/71) | Additional topics, a summary, glossary and sources | — |
+    | 2 | [**Economic dispatch**](#/13) | The merit order, how generators bid and get paid, why everyone gets the same price, and a duck-curve day with ramp limits and a battery | LP; the price **is** the dual |
+    | 3 | [**Adding the network**](#/28) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves**](#/45) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
+    | 5 | [**Unit commitment**](#/49) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/58) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/72) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -240,6 +242,26 @@ def _(mo):
       PJM, MISO, ERCOT, CAISO, NYISO, ISO‑NE, SPP.
 
     <small>**Terms** — **MW**: a rate of power &ensp;|&ensp; **MWh**: energy, 1 MW for 1 hour &ensp;|&ensp; **\$/MWh**: price of energy &ensp;|&ensp; **thermal limit**: most power a line carries before overheating &ensp;|&ensp; **RTO** (regional transmission organization): same role as an ISO</small>
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## How the market runs
+
+    | Step | When | What it decides | Math |
+    |:---|:---|:---|:---|
+    | **1. Offers** | Before the market | Generators submit price–quantity offers | — |
+    | **2. Day-ahead market** | The day before, hourly | Which plants turn **on**, and roughly how much they make | **MILP**: unit commitment |
+    | **3. Real-time market** | Every **5 minutes** | Output of plants already on | **LP**: economic dispatch |
+
+    Today: the LP inside step 3 first, then the MILP inside step 2.
+
+    <small>**Terms** — **unit commitment**: deciding which units are on &ensp;|&ensp; **economic dispatch**: setting the MW of units already on</small>
     """
     )
     return
@@ -534,22 +556,71 @@ def _(WEST, add_ba_plants, add_lines, base_map, mo, show_map, western):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-    ## How the market runs
+def _(ASSETS, go, mo, pd, show_chart):
+    def buses_and_lines_slide():
+        """From the physical grid to the model: substations become buses, wires become lines."""
+        n_buses = len(pd.read_parquet(ASSETS / "western_opf_buses.parquet"))
+        n_lines = len(pd.read_parquet(ASSETS / "western_opf_lines.parquet"))
+        buses = {"A": (0.0, 0.0), "B": (2.2, 0.2), "C": (1.0, 1.5), "D": (3.0, 1.6)}
+        fig = go.Figure()
+        for a, b, label in [("A", "B", ""), ("A", "C", ""), ("B", "C", ""), ("C", "D", "line: limit 300 MW"), ("B", "D", "")]:
+            (x0, y0), (x1, y1) = buses[a], buses[b]
+            fig.add_scatter(x=[x0, x1], y=[y0, y1], mode="lines", line=dict(color="#8A9BB8", width=4),
+                            hoverinfo="skip", showlegend=False)
+            if label:
+                fig.add_annotation(x=(x0 + x1) / 2, y=(y0 + y1) / 2 + 0.17, text=label, showarrow=False,
+                                   font=dict(size=13, color="#4A5A78"))
+        attached = {  # (bus, label, color, offset)
+            "A": ("Hydro plant<br>(generator)", "#3E8FB0", (-0.55, -0.45)),
+            "D": ("Wind farm<br>(generator)", "#5B9A6B", (0.5, -0.45)),
+            "B": ("City<br>(load)", "#14213D", (0.45, -0.5)),
+            "C": ("Gas plant<br>(generator)", "#2F4A7A", (-0.6, 0.45)),
+        }
+        for bus, (label, color, (dx, dy)) in attached.items():
+            x, y = buses[bus]
+            fig.add_scatter(x=[x, x + dx], y=[y, y + dy], mode="lines", line=dict(color=color, width=2, dash="dot"),
+                            hoverinfo="skip", showlegend=False)
+            fig.add_scatter(x=[x + dx], y=[y + dy], mode="markers",
+                            marker=dict(size=16, color=color, symbol="square" if "load" not in label else "triangle-down"),
+                            hoverinfo="skip", showlegend=False)
+            fig.add_annotation(x=x + dx, y=y + dy, text=label, showarrow=False, yshift=-26 if dy < 0 else 26,
+                               font=dict(size=12))
+        fig.add_scatter(x=[x for x, _ in buses.values()], y=[y for _, y in buses.values()], mode="markers+text",
+                        marker=dict(size=34, color="#14213D"), text=list(buses), textfont=dict(color="white", size=14),
+                        hoverinfo="skip", showlegend=False)
+        fig.update_xaxes(visible=False, range=[-0.9, 4.0])
+        fig.update_yaxes(visible=False, range=[-1.0, 2.4])
 
-    | Step | When | What it decides | Math |
-    |:---|:---|:---|:---|
-    | **1. Offers** | Before the market | Generators submit price–quantity offers | — |
-    | **2. Day-ahead market** | The day before, hourly | Which plants turn **on**, and roughly how much they make | **MILP**: unit commitment |
-    | **3. Real-time market** | Every **5 minutes** | Output of plants already on | **LP**: economic dispatch |
+        return mo.vstack([
+            mo.md("## From the map to the model: buses and lines"),
+            mo.hstack([
+                show_chart(fig, 285),
+                mo.md(
+                    f"""
+    The previous map is a **graph**:
 
-    Today: the LP inside step 3 first, then the MILP inside step 2.
+    - **Bus**: a node, where wires meet at one voltage (a substation). Generators and loads attach to buses.
+    - **Line**: an edge between two buses (a transmission line or transformer), with a **limit** in MW.
 
-    <small>**Terms** — **unit commitment**: deciding which units are on &ensp;|&ensp; **economic dispatch**: setting the MW of units already on</small>
+    Our western model: **{n_buses:,} buses** and **{n_lines:,} lines**.
     """
-    )
+                ),
+            ], widths=[1.1, 1], align="center"),
+            mo.md(
+                r"""
+    | On the map | In the model | In the LP |
+    |:---|:---|:---|
+    | Substation | **Bus** | one **supply = demand** constraint; its dual is the **price at that bus** (the LMP) |
+    | Transmission line, transformer | **Line** | a **flow** variable, bounded by the line’s limit |
+    | Power plant | **Generator** at a bus | an **output** variable $p$, with its offer and limits |
+    | City, factory | **Load** at a bus | demand $D$ (data) |
+
+    <small>PyPSA uses the same names: `Bus`, `Line`, `Generator`, `Load`. Until section 3, the whole grid is one bus: no lines, one price.</small>
+    """
+            ),
+        ])
+
+    buses_and_lines_slide()
     return
 
 
@@ -1339,15 +1410,18 @@ def _(go, mo, show_chart, three_bus):
                         show_chart(fig, 420),
                         mo.md(
                             f"""
-    Three identical lines. Cheap Gen 1 (\\$20) and expensive Gen 2 (\\$50) serve a
-    300 MW load at bus 3. Only **line 1–3** has a limit: **150 MW**.
+    Three identical lines; only line 1–3 is limited, to **150 MW**. As a pure **network flow**, cheap Gen 1 would serve
+    all 300 MW at bus 3, 150 of it around through bus 2 (cost \\$6,000). But Kirchhoff’s law splits the flow: each MW
+    from Gen 1 puts 2/3 MW on line 1–3; each MW from Gen 2 puts only 1/3 MW on it. To stay within the flow limit,
+    **cheap Gen 1 stops at {output['Gen 1']:.0f} MW** and the **expensive Gen 2 runs at {output['Gen 2']:.0f} MW** instead of 0
+    (cost **\\${n.objective:,.0f}**).
 
-    As a pure **network flow**, Gen 1 would serve all 300 MW: 150 MW direct and
-    150 MW around through bus 2 (cost \\$6,000, price \\$20 everywhere).
-    But power can’t be routed: it splits across every path in inverse proportion to the path’s reactance, **2/3 direct and 1/3 around** through bus 2. At 300 MW, Gen 1 would put 200 MW on line 1–3, over its limit. To stay within the
-    flow limits, the LP backs Gen 1 down and runs the **expensive Gen 2 at 150 MW** instead of 0 (cost \\$10,500).
+    **Why not run Gen 1 at 300 MW?** It would put 2/3 × 300 = 200 MW on line 1–3, over its 150 MW limit.
 
-    And the LMP at bus 3 is **\\${lmp['bus 3']:.0f}/MWh**: *higher than either generator’s offer*.
+    **Why is line 1–2 at 0 MW?** Each generator sends 1/3 of its output around the loop: Gen 1’s 50 MW go 1→2,
+    Gen 2’s 50 MW go 2→1, and they cancel. With unequal outputs, line 1–2 would carry flow.
+
+    The LMP at bus 3 is **\\${lmp['bus 3']:.0f}/MWh**: *higher than either generator’s offer*.
     """
                         ),
                     ],
