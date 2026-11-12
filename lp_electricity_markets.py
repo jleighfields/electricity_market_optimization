@@ -170,11 +170,11 @@ def _(mo):
     |:---|:---|:---|:---|
     | 1 | [**Electricity markets 101**](#/3) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
     | 2 | [**Economic dispatch**](#/11) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/22) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves and capacity**](#/39) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
-    | 5 | [**Unit commitment**](#/47) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/56) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/70) | Additional topics, a summary, glossary and sources | — |
+    | 3 | [**Adding the network**](#/20) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves and capacity**](#/37) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
+    | 5 | [**Unit commitment**](#/45) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/54) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/68) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -708,63 +708,6 @@ def _(mo):
 
 
 @app.cell
-def _(terms, QUIET, merit, mo, pypsa):
-    def single_bus(demand):
-        """Economic dispatch: min Σ c_i p_i  s.t.  Σ p_i = D (λ),  0 ≤ p_i ≤ Pmax_i."""
-        n = pypsa.Network()
-        n.add("Bus", "grid")                      # one bus → one balance constraint, dual λ
-        # merit: the 5 offers on the merit-order slide, columns unit, capacity (MW), cost ($/MWh)
-        for _, g in merit.iterrows():             # one decision variable p_i per generator
-            n.add("Generator", g["unit"], bus="grid",
-                  p_nom=g["capacity"],            # upper bound Pmax_i (MW)
-                  marginal_cost=g["cost"])        # objective coefficient c_i ($/MWh offer)
-        n.add("Load", "demand", bus="grid", p_set=demand)   # right-hand side D (MW)
-        n.optimize(solver_name="highs", solver_options=QUIET)  # build the LP, solve with HiGHS
-        return n                                  # λ is in n.buses_t.marginal_price
-
-    mo.vstack([mo.md("## Code: economic dispatch as a PyPSA LP (one bus)"), mo.show_code(), terms(r"**PyPSA**: Python power-system modeling library &ensp;|&ensp; **HiGHS**: open-source LP/MILP solver &ensp;|&ensp; `p_nom` = $\overline P_i$ &ensp;|&ensp; `QUIET`: solver option that hides HiGHS’ log")])
-    return (single_bus,)
-
-
-@app.cell(hide_code=True)
-def _(demand_slider, mo, single_bus):
-    def single_bus_slide(demand):
-        n = single_bus(demand)
-        price = n.buses_t.marginal_price.iloc[0, 0]
-        units = n.generators.assign(MW=n.generators_t.p.iloc[0].clip(lower=0) + 0.0)  # + 0.0 turns −0 into 0
-        dispatch = mo.md(
-            "| Unit | Marginal cost $c_i$ | Max MW | Dispatch MW | $\\lambda - c_i$ |\n|:---|---:|---:|---:|---:|\n"
-            + "\n".join(
-                f"| **{name}** | \\${g.marginal_cost:.0f}/MWh | {g.p_nom:.0f} | {g.MW:.0f} | {price - g.marginal_cost:+.0f} |"
-                for name, g in units.iterrows()
-            )
-        )
-        return mo.vstack(
-            [
-                mo.md("## The LP’s dual reproduces the merit-order price"),
-                demand_slider,
-                mo.hstack(
-                    [
-                        dispatch,
-                        mo.stat(
-                            value=f"${price:.0f}/MWh",
-                            label="Dual of the balance constraint",
-                            caption="matches the merit-order price",
-                        ),
-                    ],
-                    justify="space-around",
-                    align="center",
-                ),
-                mo.md(r"<small>$\lambda - c_i > 0$: run at max (profitable) &ensp;|&ensp; $= 0$: the marginal unit, sets the price &ensp;|&ensp; "
-                      r"$< 0$: stays off. Exactly the per-generator problems from the Lagrangian.</small>"),
-            ]
-        )
-
-    single_bus_slide(demand_slider.value)
-    return
-
-
-@app.cell
 def _(terms, QUIET, merit, mo, np, pd, pypsa):
     # A made-up day: demand peaks in the evening; wind is strongest at night, solar at noon
     day_hours = pd.RangeIndex(24, name="hour")
@@ -777,17 +720,17 @@ def _(terms, QUIET, merit, mo, np, pd, pypsa):
         n = pypsa.Network()
         n.set_snapshots(day_hours)                # 24 snapshots → 24 balance constraints, duals λ_t
         n.add("Bus", "grid")
-        for _, g in merit.iterrows():             # the same 5 offers as before, plus solar below
+        for _, g in merit.iterrows():             # one variable p_it per generator per hour
             n.add("Generator", g["unit"], bus="grid", p_nom=g["capacity"], marginal_cost=g["cost"],
                   p_max_pu=wind_avail if g["unit"] == "Wind" else 1.0)   # wind: at most what blows
         n.add("Generator", "Solar", bus="grid", p_nom=200, marginal_cost=0,  # new: 200 MW of solar,
               p_max_pu=solar_avail)                                        # free to run, sun-limited
         n.add("Load", "demand", bus="grid", p_set=day_demand)   # D_t, one value per hour
-        n.optimize(solver_name="highs", solver_options=QUIET)
-        return n
+        n.optimize(solver_name="highs", solver_options=QUIET)  # build the LP, solve with HiGHS
+        return n                                  # λ_t is in n.buses_t.marginal_price
 
-    mo.vstack([mo.md("## Code: the same LP for every hour of a day"), mo.show_code(),
-               terms(r"**snapshot**: one time step (here an hour) &ensp;|&ensp; `day_demand`: 24 hourly demands $D_t$ (MW) &ensp;|&ensp; `wind_avail`, `solar_avail`: available output as a share of each plant’s 200 MW, $\overline P^{\,\text{avail}}_{jt} / 200$ &ensp;|&ensp; `p_max_pu`: per-unit upper bound")])
+    mo.vstack([mo.md("## Code: economic dispatch as a PyPSA LP, every hour of a day"), mo.show_code(),
+               terms(r"**PyPSA**: Python power-system modeling library &ensp;|&ensp; **HiGHS**: open-source LP/MILP solver &ensp;|&ensp; `merit`: the 5 offers from the merit-order slide &ensp;|&ensp; `p_nom` = $\overline P_i$<br>**snapshot**: one time step (here an hour) &ensp;|&ensp; `day_demand`: 24 hourly demands $D_t$ (MW) &ensp;|&ensp; `wind_avail`, `solar_avail` → `p_max_pu`: available share of the plant’s 200 MW")])
     return day_demand, day_dispatch, day_hours
 
 
