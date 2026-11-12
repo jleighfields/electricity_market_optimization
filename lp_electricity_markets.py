@@ -600,7 +600,7 @@ def _(ASSETS, go, mo, pd, show_chart):
     The previous map is a **graph**:
 
     - **Bus**: a node, where wires meet at one voltage (a substation). Generators and loads attach to buses.
-    - **Line**: an edge between two buses (a transmission line or transformer), with a **limit** in MW.
+    - **Line**: an edge between two buses (a transmission line), with a **limit** in MW.
 
     Our western model: **{n_buses:,} buses** and **{n_lines:,} lines**.
     """
@@ -611,7 +611,7 @@ def _(ASSETS, go, mo, pd, show_chart):
     | On the map | In the model | In the LP |
     |:---|:---|:---|
     | Substation | **Bus** | one **supply = demand** constraint; its dual is the **price at that bus** (the LMP) |
-    | Transmission line, transformer | **Line** | a **flow** variable, bounded by the line’s limit |
+    | Transmission line | **Line** | a **flow** variable, bounded by the line’s limit |
     | Power plant | **Generator** at a bus | an **output** variable $p$, with its offer and limits |
     | City, factory | **Load** at a bus | demand $D$ (data) |
 
