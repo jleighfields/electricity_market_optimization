@@ -1,0 +1,15 @@
+{
+ "status": "Time limit reached",
+ "gap": 0.0014978112939460322,
+ "nodes": 2,
+ "seconds": 30.04030442237854,
+ "cost": 8565015.60319658,
+ "bound": 8552186.826093288,
+ "units": 40,
+ "hours": "48",
+ "time_limit": 30,
+ "target_gap": "0.01%",
+ "variables": 7680,
+ "constraints": 12168,
+ "binaries": 5760
+}

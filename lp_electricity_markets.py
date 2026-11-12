@@ -58,6 +58,12 @@ def _():
         """A small line that defines the jargon and symbols used on a slide."""
         return mo.md(f"<small>**Terms** — {text}</small>")
 
+    def lp_size(n):
+        """How big the LP/MILP that PyPSA just solved is, read from its linopy model."""
+        m = n.model
+        binary = f" ({m.binaries.nvars:,} binary)" if m.binaries.nvars else ""
+        return f"**Size:** {m.nvars:,} variables{binary}, {m.ncons:,} constraints (limits included)."
+
     def show_chart(fig, height, **layout):
         """Show a Plotly chart styled like the maps, at a fixed height so the slide fits."""
         fig.update_layout(
@@ -105,6 +111,7 @@ def _():
         json,
         limit_slider,
         linprog,
+        lp_size,
         make_subplots,
         mo,
         np,
@@ -200,8 +207,8 @@ def _(mo):
     | 3 | [**Adding the network**](#/28) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
     | 4 | [**Reserves**](#/45) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
     | 5 | [**Unit commitment**](#/49) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/58) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/72) | Additional topics, a summary, glossary and sources | — |
+    | 6 | [**Portfolio management**](#/59) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/73) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -773,7 +780,7 @@ def _(mo):
 
     Substituting $p_i = \underline P_i + \delta_i$ leaves a **continuous knapsack**: filling cheapest-first (the merit order) is provably optimal.
 
-    <small>**Terms** — **online**: committed (on) this interval &ensp;|&ensp; **curtail**: use less wind or solar than the weather allows &ensp;|&ensp; $i$ indexes all units (so $\sum_i p_i$ includes wind and solar); $j$ marks the wind and solar units, whose upper limit is $\overline P^{\,\text{avail}}_j$ &ensp;|&ensp; $\delta_i \ge 0$: output above the minimum</small>
+    <small>**Terms** — **online**: committed (on) this interval &ensp;|&ensp; **curtail**: use less wind or solar than the weather allows &ensp;|&ensp; $i$ indexes all units (so $\sum_i p_i$ includes wind and solar); $j$ marks the wind and solar units, whose upper limit is $\overline P^{\,\text{avail}}_j$ &ensp;|&ensp; $\delta_i \ge 0$: output above the minimum &ensp;|&ensp; **size**: one variable per unit (5 on the merit-order slide), one equality, two bounds each</small>
     """
     )
     return
@@ -884,7 +891,7 @@ def _(terms, QUIET, merit, mo, np, pd, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(day_demand, day_dispatch, day_hours, go, make_subplots, mo, show_chart):
+def _(day_demand, day_dispatch, day_hours, go, lp_size, make_subplots, mo, show_chart):
     def day_dispatch_slide():
         n = day_dispatch()
         dispatch = n.generators_t.p.clip(lower=0) + 0.0
@@ -911,7 +918,7 @@ def _(day_demand, day_dispatch, day_hours, go, make_subplots, mo, show_chart):
             show_chart(fig, 410, legend=dict(orientation="h", x=0.01, y=1.0, yanchor="bottom")),
             mo.md(r"<small>Each hour the LP fills demand (black line) from the bottom of the merit order up. "
                   r"Whichever unit is on top, only partly used, is marginal and sets that hour’s price $\lambda_t$ (bottom panel). "
-                  r"Solar (\$0) and wind (\$5) come first whenever available; as the sun sets into the evening peak, gas and the peaker fill in and the price jumps.</small>"),
+                  r"Solar (\$0) and wind (\$5) come first whenever available; as the sun sets into the evening peak, gas and the peaker fill in and the price jumps. " + lp_size(n) + "</small>"),
             mo.md(r"**But there’s a problem at midday:** this LP turns nuclear and coal **all the way off** around noon. Real plants can’t easily cut output to zero "
                   r"(or restart in time for the evening), so that energy must go somewhere, into storage or exports, or we have to **curtail wind and solar**."),
         ])
@@ -1030,7 +1037,7 @@ def _(QUIET, day_demand, day_hours, merit, mo, pd, pypsa, solar_avail, terms, wi
 
 
 @app.cell(hide_code=True)
-def _(day_demand, day_dispatch_flex, day_hours, go, make_subplots, mo, show_chart):
+def _(day_demand, day_dispatch_flex, day_hours, go, lp_size, make_subplots, mo, show_chart):
     def flex_day_slide():
         n = day_dispatch_flex()
         dispatch = n.generators_t.p.clip(lower=0) + 0.0
@@ -1077,7 +1084,7 @@ def _(day_demand, day_dispatch_flex, day_hours, go, make_subplots, mo, show_char
                   f"\\${n.objective:,.0f}, **\\${saved:,.0f} ({saved / no_battery.objective:.0%}) less**: "
                   "solar that would have been curtailed is stored and replaces the \\$80 peaker in the evening."),
             mo.md(r"<small>Top: dispatch. When generation rises above demand (black) to the dashed line, the excess charges the battery; in the evening the battery discharges to meet demand. "
-                  r"Middle: price $\lambda_t$ with and without the battery (same ramps and minimums). Bottom: energy stored in the battery.</small>"),
+                  r"Middle: price $\lambda_t$ with and without the battery (same ramps and minimums). Bottom: energy stored in the battery. " + lp_size(n) + "</small>"),
         ])
 
     flex_day_slide()
@@ -1248,7 +1255,7 @@ def _(QUIET, mo, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(terms, go, limit_slider, mo, show_chart, two_bus):
+def _(terms, go, limit_slider, lp_size, mo, show_chart, two_bus):
     def two_bus_slide(line_limit):
         n = two_bus(line_limit)
         output = n.generators_t.p.iloc[0]
@@ -1295,6 +1302,7 @@ def _(terms, go, limit_slider, mo, show_chart, two_bus):
                     ],
                     justify="space-around",
                 ),
+                mo.md(f"<small>{lp_size(n)}</small>"),
             ]
         )
 
@@ -1350,7 +1358,7 @@ def _(QUIET, mo, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(go, mo, show_chart, three_bus):
+def _(go, lp_size, mo, show_chart, three_bus):
     def three_bus_slide():
         n = three_bus()
         lmp = n.buses_t.marginal_price.iloc[0]
@@ -1407,7 +1415,7 @@ def _(go, mo, show_chart, three_bus):
                 mo.md("## A price above every offer: LMP higher than either generator’s cost"),
                 mo.hstack(
                     [
-                        show_chart(fig, 420),
+                        mo.vstack([show_chart(fig, 400), mo.md(f"<small>{lp_size(n)}</small>")]),
                         mo.md(
                             f"""
     Three identical lines; only line 1–3 is limited, to **150 MW**. As a pure **network flow**, cheap Gen 1 would serve
@@ -1511,7 +1519,7 @@ def _(QUIET, mo, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
+def _(terms, baker_three_bus, bus1_load_switch, go, lp_size, mo, show_chart):
     def negative_price_slide(add_load):
         n = baker_three_bus(1.0 if add_load else 0.0)
         lmp = n.buses_t.marginal_price.iloc[0]
@@ -1560,11 +1568,11 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
                 mo.md("## A negative price: more load, lower cost"),
                 mo.hstack(
                     [
-                        mo.vstack([show_chart(fig, 330), bus1_load_switch, mo.md(r"""
+                        mo.vstack([show_chart(fig, 330), bus1_load_switch, mo.md(rf"""
     <small>Real negative prices usually come from wind and solar with production tax credits or from inflexible
     units; this one comes purely from **Kirchhoff’s law**. Example from the PyPSA docs,
     [“Negative LMPs from Line Congestion”](https://docs.pypsa.org/latest/examples/negative-prices-kvl-baker/), after
-    [K. Baker](https://github.com/kyribaker/3bus_LMPs); see [Baker & Gangammanavar (2024)](https://doi.org/10.48550/arXiv.2403.19032).</small>
+    [K. Baker](https://github.com/kyribaker/3bus_LMPs); see [Baker & Gangammanavar (2024)](https://doi.org/10.48550/arXiv.2403.19032). {lp_size(n)}</small>
     """)]),
                         mo.md(
                             f"""
@@ -2163,7 +2171,7 @@ def _(QUIET, mo, np, pypsa):
 
 
 @app.cell(hide_code=True)
-def _(demand_profile, go, hours, make_subplots, mo, show_chart, unit_commitment):
+def _(demand_profile, go, hours, lp_size, make_subplots, mo, show_chart, unit_commitment):
     uc = unit_commitment()
     status = uc.generators_t.status.round().astype(int)
 
@@ -2188,7 +2196,7 @@ def _(demand_profile, go, hours, make_subplots, mo, show_chart, unit_commitment)
         return mo.vstack([mo.md("## Solving the MILP with PyPSA + HiGHS"), show_chart(
             fig, 470, margin=dict(l=10, r=10, t=10, b=10),
             legend=dict(orientation="h", x=0.01, y=1.0, yanchor="top"),
-        )])
+        ), mo.md(f"<small>{lp_size(uc)}</small>")])
 
     uc_chart_slide()
     return status, uc
@@ -2342,7 +2350,8 @@ def _(mo):
 
     - **Size:** thousands of units, network models with tens of thousands of buses, 24–36 hourly periods.
       That means millions of variables and constraints.
-    - **Deadline:** the day-ahead market has to clear in a fixed window, so solvers run under time limits with an optimality gap.
+    - **Deadline:** the day-ahead market has to clear in a fixed window, so solvers run under a time limit and stop at an
+      **optimality gap**: the best schedule found may not be optimal, but it is provably close (next slide).
     - **Formulation:** tight formulations matter. An LP relaxation close to the convex hull lets branch-and-bound finish in time.
 
     US ISOs replaced Lagrangian relaxation with commercial MILP solvers in the 2000s–2010s (PJM first, in 2004),
@@ -2351,6 +2360,50 @@ def _(mo):
     <small>**Terms** — **FERC**: federal regulator of wholesale markets &ensp;|&ensp; **production cost**: total fuel, startup and operating cost of serving load</small>
     """
     )
+    return
+
+
+@app.cell(hide_code=True)
+def _(ASSETS, go, json, make_subplots, mo, pd, show_chart):
+    def optimality_gap_slide():
+        """Convergence of a bigger UC MILP, saved by scripts/build_gap_trace.py from optimality_gap_demo.py."""
+        trace = pd.read_parquet(ASSETS / "uc_gap_trace.parquet")
+        run = json.loads((ASSETS / "uc_gap_result.json").read_text())
+        fig = make_subplots(2, 1, shared_xaxes=True, row_heights=[0.64, 0.36], vertical_spacing=0.08)
+        fig.add_scatter(x=trace.seconds, y=trace.best_solution / 1e6, name="Best solution found (upper bound)",
+                        line=dict(shape="hv", color="#E07A1F", width=2.5), row=1, col=1)
+        fig.add_scatter(x=trace.seconds, y=trace.best_bound / 1e6, name="Best bound (no schedule can cost less)",
+                        line=dict(shape="hv", color="#2F4A7A", width=2.5), fill="tonexty",
+                        fillcolor="rgba(160,160,160,0.25)", row=1, col=1)
+        fig.add_scatter(x=trace.seconds, y=100 * trace.gap, name="Gap", showlegend=False,
+                        line=dict(shape="hv", color="#6A6A6A", width=2), row=2, col=1)
+        fig.update_yaxes(title="Cost ($M)", row=1, col=1)
+        fig.update_yaxes(title="Gap (%)", type="log", row=2, col=1)
+        fig.update_xaxes(title="Seconds", row=2, col=1)
+        first = trace.iloc[0]
+        return mo.vstack([
+            mo.md("## Solving under a deadline: watching the optimality gap close"),
+            mo.hstack([
+                show_chart(fig, 400, legend=dict(x=0.35, y=0.98, font=dict(size=12))),
+                mo.md(
+                    f"""
+    A bigger unit commitment: **{run['units']} units × {run['hours']} hours**, {run['variables']:,} variables
+    ({run['binaries']:,} binary), {run['constraints']:,} constraints.
+
+    $$\\text{{gap}} = \\frac{{\\text{{best solution}} - \\text{{best bound}}}}{{\\text{{best solution}}}}$$
+
+    - First schedule after {first.seconds:.1f} s: **{100 * first.gap:.1f}%** from the bound.
+    - Stopped at the **{run['time_limit']} s** limit: **{100 * run['gap']:.2f}%**, i.e. at most
+      **\\${run['cost'] - run['bound']:,.0f}** above optimal on a \\${run['cost'] / 1e6:.1f}M day.
+    - So a solve stopped early still comes with a **guarantee**.
+    """
+                ),
+            ], widths=[1.35, 1], align="center"),
+            mo.md("<small>HiGHS on a laptop; illustrative fleet. Run it yourself: `uv run marimo run optimality_gap_demo.py` "
+                  "(choose units, hours, time limit and target gap).</small>"),
+        ])
+
+    optimality_gap_slide()
     return
 
 
