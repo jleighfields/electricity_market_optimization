@@ -3210,7 +3210,7 @@ def _(
     def bid_curve_slide(contract, cvar_limit):
         k = list(hedges).index(contract)
         base_prices = np.array([price for _, price, _ in hedges.values()])
-        premiums = np.arange(-5, 10.01, 0.1)
+        premiums = np.round(np.arange(-2, 5.001, 0.05), 2)
 
         bought = []
         for premium in premiums:
@@ -3218,46 +3218,69 @@ def _(
             prices[k] = fair_values[k] + premium
             solution = hedge_lp(cvar_limit, fixed_prices=prices)
             bought.append(np.nan if solution is None else solution["q"][k])
-        at_offer = hedge_lp(cvar_limit)
-        accept_premium = (
-            None if at_offer is None else at_offer["accept_price"][k] - fair_values[k]
-        )
+        bought = np.array(bought)
         offered_premium = base_prices[k] - fair_values[k]
+        at_offer = hedge_lp(cvar_limit)
+        estimate = None if at_offer is None else at_offer["accept_price"][k] - fair_values[k]
+        buys = np.flatnonzero(bought > 0.5)
+        walk_away = premiums[buys[-1]] if len(buys) else None      # highest price at which it still buys
+
+        def still_buys(premium):
+            prices = base_prices.copy()
+            prices[k] = fair_values[k] + premium
+            solution = hedge_lp(cvar_limit, fixed_prices=prices)
+            return solution is not None and solution["q"][k] > 0.5
+
+        if walk_away is not None and walk_away < premiums[-1]:      # refine between grid points
+            low, high = walk_away, walk_away + 0.05
+            for _ in range(8):
+                middle = (low + high) / 2
+                low, high = (middle, high) if still_buys(middle) else (low, middle)
+            walk_away = low
 
         fig = go.Figure(go.Scatter(
             x=premiums, y=bought, mode="lines", line=dict(shape="hv", color="#2F6DB5", width=2.5),
-            name="Re-solving the LP at each price",
-            hovertemplate="+$%{x:.1f}/MWh: %{y:,.0f} MW<extra></extra>",
+            name="MW bought, re-solving the LP at each price",
+            hovertemplate="+$%{x:.2f}/MWh: %{y:,.0f} MW<extra></extra>",
         ))
-        fig.add_vline(offered_premium, line=dict(color="#8A9BB8", dash="dot", width=1.5),
-                      showlegend=True, name="Offered price")
-        if accept_premium is not None:
-            fig.add_vline(accept_premium, line=dict(color="#E73F74", dash="dash", width=2),
-                          showlegend=True, name="Highest acceptable price, from the solved LP")
-            fig.add_annotation(x=accept_premium, y=0.5, yref="paper", xanchor="right",
-                               text=f"risk premium<br>+${accept_premium:.2f}/MWh ", showarrow=False,
-                               bgcolor="#F7F5EF", font=dict(color="#E73F74", size=13))
+        fig.add_vline(offered_premium, line=dict(color="#6A6A6A", dash="dot", width=2))
+        fig.add_annotation(x=offered_premium, y=1, yref="paper", yanchor="bottom", showarrow=False,
+                           text=f"offered +${offered_premium:.2f}", font=dict(color="#6A6A6A", size=12))
+        if walk_away is not None and walk_away < premiums[-1]:
+            fig.add_vline(walk_away, line=dict(color="#E73F74", dash="dash", width=2))
+            fig.add_annotation(x=walk_away, y=0.55, yref="paper", xanchor="left", showarrow=False,
+                               text=f" highest price it pays:<br> +${walk_away:.2f}/MWh", bgcolor="#F7F5EF",
+                               font=dict(color="#E73F74", size=13))
+            note = (f"Re-solving, the LSE stops buying above **+\\${walk_away:.2f}/MWh**; "
+                    f"the previous slide’s linear estimate was +\\${estimate:.2f}.")
+        elif walk_away is not None:
+            note = (f"The LSE still buys at **+\\${premiums[-1]:.0f}/MWh**: at this CVaR limit it can’t do without "
+                    "this contract.")
+        else:
+            note = "At this CVaR limit the LSE buys none of it at any price shown."
+        if estimate is not None and abs(estimate - offered_premium) < 0.005 and np.interp(offered_premium, premiums, bought) > 0.5:
+            note += (" A contract bought *at the margin* has reduced cost 0, so the estimate just returns the "
+                     "offered price; only re-solving finds how much higher it could go.")
         fig.update_xaxes(title="Fixed price above forecast value ($/MWh)")
-        fig.update_yaxes(title="MW the LSE buys")
+        fig.update_yaxes(title="MW the LSE buys", rangemode="tozero")
+        rises = (" Where the curve **rises** with price, the CVaR limit binds: a pricier contract raises the cost "
+                 "in every month, so it takes *more* MW to keep the worst months under the limit."
+                 if np.nanmax(np.diff(bought)) > 1 else "")
 
         return mo.vstack(
             [
                 mo.md(
                     "## Negotiating a bilateral contract: the bid curve\n\n"
                     "Re-solve the hedging LP at many fixed prices for one contract (the others stay available). "
-                    "The MW bought at each price is the LSE’s **bid curve**; the dashed line is the highest "
-                    "acceptable price read off the single solved LP. Gaps mean no mix meets the CVaR limit."
+                    "The MW bought at each price is the LSE’s **bid curve**. Gaps mean no mix meets the CVaR limit."
                 ),
                 mo.hstack([contract_dropdown, cvar_slider], justify="start", gap=2),
-                show_chart(fig, 320, margin=dict(l=10, r=10, t=40, b=10),
-                           title=dict(text=f"LSE’s bid curve for the {contract}", font=dict(size=14), x=0.5),
+                show_chart(fig, 300, margin=dict(l=10, r=10, t=40, b=10),
+                           title=dict(text=f"LSE’s bid curve for the {contract}", font=dict(size=14), x=0.02),
                            legend=dict(x=1, xanchor="right", y=1)),
                 mo.md(
-                    "A seller has its own floor (for a solar developer, its cost of building and running "
-                    "the plant). **Any price between the seller’s floor and the LSE’s highest acceptable price "
-                    "beats no deal for both sides**; the LP tells the LSE where its end of that range is. "
-                    "Once the CVaR limit binds, tightening it further raises that price only slightly here (cents, for solar): "
-                    "these contracts add little risk reduction at the margin."
+                    f"{note}{rises} **Any price between the seller’s floor** (e.g., a solar developer’s cost) **and the LSE’s "
+                    "highest price beats no deal for both sides.**"
                 ),
             ]
         )
