@@ -17,6 +17,7 @@ Two slide decks and a standalone demo, all [marimo](https://marimo.io) notebooks
 | `scripts/capture_ercot_map.py` | Captures the ERCOT LMP map used on the slides |
 | `scripts/build_gap_trace.py` | Re-runs `optimality_gap_demo.py` and saves its trace for the main deck |
 | `CLAUDE.md` | Conventions and the after-every-change checklist |
+| `app.py`, `requirements.txt` | Serve all three notebooks as one web app (Posit Connect or any ASGI host; see below) |
 
 ## `lp_electricity_markets.py`: short-term markets
 
@@ -67,6 +68,36 @@ uv run marimo export html optimality_gap_demo.py -o optimality_gap_demo.html
 This produces one self-contained file (~8 MB) that opens in any browser with no Python.
 The maps keep zoom, pan and hover. The sliders are frozen at their defaults,
 because there's no kernel to re-solve the LPs.
+
+## Hosting the live notebooks (Posit Connect)
+
+`app.py` wraps the notebooks in one FastAPI app with marimo's `create_asgi_app()`, so sliders and switches
+re-solve on the server:
+
+| Path | Notebook |
+|:---|:---|
+| `/` | `lp_electricity_markets.py` (slides) |
+| `/planning` | `lp_planning.py` (slides) |
+| `/gap-demo` | `optimality_gap_demo.py` |
+
+Try it locally first:
+
+```bash
+uv run --group connect uvicorn app:app --port 8080    # then open http://localhost:8080
+```
+
+Deploy with [rsconnect-python](https://docs.posit.co/rsconnect-python/) (after `rsconnect add` for your server):
+
+```bash
+rsconnect deploy fastapi --entrypoint app:app \
+    --exclude ".venv/*" --exclude "assets/raw/*" --exclude "__marimo__/*" --exclude "*.html" .
+```
+
+- Connect installs `requirements.txt`. After changing dependencies, regenerate it:
+  `uv export --group connect --no-hashes --no-dev --no-emit-project --format requirements-txt -o requirements.txt`
+- marimo needs WebSockets between the browser and the server; Connect must allow them (it does for Shiny apps).
+- Ship `assets/` (stored solves) and `layouts/` (slides layout). Each visitor gets their own Python session,
+  and the gap demo solves its MILP (~30 s) when it opens.
 
 ## Data (all stored in `assets/`, so the talk runs offline)
 
