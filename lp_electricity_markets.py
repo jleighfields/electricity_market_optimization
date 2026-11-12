@@ -133,7 +133,7 @@ def _(mo):
     1. **An overview of electricity markets:** what is bought and sold, who is involved, and how prices are set.
     2. **Connect the business problems to the math:** each market question turns out to be an LP or MILP you
        already know how to write, and the market prices are its **dual variables**.
-    3. **The problem statement:** the objective is to **minimize system cost** or **maximize profit**;
+    3. **The problem statement:** the objective is to **minimize cost** or **risk**;
        **market rules, contracts, plant operating limits and physics** become **constraints**.
     4. **Build up one step at a time:**
 
