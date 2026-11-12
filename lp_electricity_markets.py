@@ -2390,7 +2390,7 @@ def _(ASSETS, go, json, make_subplots, mo, pd, show_chart):
     A bigger unit commitment: **{run['units']} units × {run['hours']} hours**, {run['variables']:,} variables
     ({run['binaries']:,} binary), {run['constraints']:,} constraints.
 
-    $$\\text{{gap}} = \\frac{{\\text{{best solution}} - \\text{{best bound}}}}{{\\text{{best solution}}}}$$
+    **gap** = (best solution − best bound) / best solution
 
     - First schedule after {first.seconds:.1f} s: **{100 * first.gap:.1f}%** from the bound.
     - Stopped at the **{run['time_limit']} s** limit: **{100 * run['gap']:.2f}%**, i.e. at most
