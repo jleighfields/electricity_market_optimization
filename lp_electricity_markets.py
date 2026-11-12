@@ -165,12 +165,12 @@ def _(mo):
     | | Section | What it covers | The optimization idea |
     |:---|:---|:---|:---|
     | 1 | [**Electricity markets 101**](#/3) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
-    | 2 | [**Economic dispatch**](#/12) | The merit order, why every generator is paid the same price, and a day with ramp limits and a battery | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/25) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves**](#/42) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
-    | 5 | [**Unit commitment**](#/46) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/55) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/69) | Additional topics, a summary, glossary and sources | — |
+    | 2 | [**Economic dispatch**](#/12) | The merit order, why every generator is paid the same price, and a duck-curve day with ramp limits and a battery | LP; the price **is** the dual |
+    | 3 | [**Adding the network**](#/26) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
+    | 4 | [**Reserves**](#/43) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
+    | 5 | [**Unit commitment**](#/47) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/56) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/70) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -755,13 +755,13 @@ def _(mo):
 
 @app.cell
 def _(terms, QUIET, merit, mo, np, pd, pypsa):
-    # A made-up day: demand peaks in the evening; wind is strongest at night, solar at noon
+    # A made-up day: demand peaks after sunset (~7 pm); wind is strongest at night, solar at noon
     day_hours = pd.RangeIndex(24, name="hour")
-    day_demand = 600 + 180 * np.sin((day_hours - 10) * np.pi / 12) + 50 * np.sin((day_hours - 14) * np.pi / 6)
+    day_demand = 570 + 110 * np.sin((day_hours - 12) * np.pi / 12) + 140 * np.exp(-(((day_hours - 19) / 2.5) ** 2))
     gusts = np.array([5, 10, 0, 8, 5, -5, -15, -20, -10, 0, 5, 10, 5, -5, 0, 10, 5, -10, -20, -15, 0, 10, 15, 5]) / 100
     wind_avail = np.clip(0.55 + 0.35 * np.cos((day_hours - 2) * np.pi / 12) + gusts, 0, 1)  # share of wind’s 200 MW
     clouds = np.ones(24)
-    clouds[[8, 9, 12, 13, 16]] = [0.9, 0.6, 0.5, 0.85, 0.7]                    # passing clouds cut solar
+    clouds[[9, 14]] = [0.75, 0.8]                                              # passing clouds cut solar
     solar_avail = np.clip(np.sin((day_hours - 6) * np.pi / 12), 0, None) * clouds  # sunrise 6:00, sunset 18:00
 
     def day_dispatch():
@@ -772,7 +772,7 @@ def _(terms, QUIET, merit, mo, np, pd, pypsa):
         for _, g in merit.iterrows():             # one variable p_it per generator per hour
             n.add("Generator", g["unit"], bus="grid", p_nom=g["capacity"], marginal_cost=g["cost"],
                   p_max_pu=wind_avail if g["unit"] == "Wind" else 1.0)   # wind: at most what blows
-        n.add("Generator", "Solar", bus="grid", p_nom=300, marginal_cost=0,  # new: 300 MW of solar,
+        n.add("Generator", "Solar", bus="grid", p_nom=500, marginal_cost=0,  # new: 500 MW of solar,
               p_max_pu=solar_avail)                                        # free to run, sun-limited
         n.add("Load", "demand", bus="grid", p_set=day_demand)   # D_t, one value per hour
         n.optimize(solver_name="highs", solver_options=QUIET)  # build the LP, solve with HiGHS
@@ -815,6 +815,52 @@ def _(day_demand, day_dispatch, day_hours, go, make_subplots, mo, show_chart):
         ])
 
     day_dispatch_slide()
+    return
+
+
+@app.cell(hide_code=True)
+def _(day_demand, day_hours, go, mo, np, show_chart, solar_avail, wind_avail):
+    def duck_curve_slide():
+        """Net load = demand − wind − solar, for growing amounts of solar: the belly sinks, the neck steepens."""
+        fig = go.Figure()
+        fig.add_scatter(x=day_hours, y=day_demand, name="Demand", mode="lines",
+                        line=dict(color="black", width=2.5),
+                        hovertemplate="Demand: %{y:.0f} MW<extra></extra>")
+        shades = {0: "#C9B8E0", 250: "#9A7CC4", 500: "#5B3D8F"}
+        for solar_mw, color in shades.items():
+            net = day_demand - 200 * wind_avail - solar_mw * solar_avail
+            fig.add_scatter(x=day_hours, y=net, name=f"Net load, {solar_mw} MW solar", mode="lines",
+                            line=dict(color=color, width=3 if solar_mw == 500 else 2),
+                            hovertemplate=f"{solar_mw} MW solar: %{{y:.0f}} MW<extra></extra>")
+        net = day_demand - 200 * wind_avail - 500 * solar_avail
+        low, high = int(np.argmin(net[:18])), int(np.argmax(net))
+        fig.add_annotation(x=low, y=net[low], text="<b>belly</b>: below what<br>the fleet can turn down to",
+                           ax=70, ay=15, xanchor="left", align="left", font=dict(color="#5B3D8F"), arrowcolor="#5B3D8F")
+        fig.add_annotation(x=17, y=net[17], text=f"<b>neck</b>: +{net[high] - net[low]:.0f} MW<br>in {high - low} hours",
+                           ax=-150, ay=-45, xanchor="right", align="right", font=dict(color="#5B3D8F"), arrowcolor="#5B3D8F")
+        fig.add_hline(200 + 80 + 40, line=dict(color="#A84F0A", dash="dash", width=1.5))
+        fig.add_annotation(x=23, y=320, text="nuclear + coal + CC<br>at their minimums (320 MW)", showarrow=False,
+                           xanchor="right", yanchor="top", align="right", font=dict(size=12, color="#A84F0A"))
+        fig.update_xaxes(title="Hour", dtick=2)
+        fig.update_yaxes(title="MW", range=[-150, 900])
+        return mo.vstack([
+            mo.md("## The duck curve: what solar does to the rest of the fleet"),
+            mo.hstack([
+                show_chart(fig, 420, legend=dict(x=0.01, y=0.99, font=dict(size=12))),
+                mo.md(
+                    "**Net load** = demand − wind − solar: what the other plants must cover.\n\n"
+                    "As solar grows, net load traces a **duck**:\n\n"
+                    "- **Belly** (midday): net load falls below what inflexible plants can turn down to, so wind and "
+                    "solar get **curtailed** and prices fall to \\$0 or below.\n"
+                    "- **Neck** (sunset): net load climbs fast just as solar fades, so the fleet must **ramp up** quickly.\n\n"
+                    "Both are about **time**: what a unit did last hour limits this hour. "
+                    "Next: add ramp limits and a battery to the LP.\n\n"
+                    "<small>Named by CAISO in 2013; California’s midday net load now dips this deep in spring.</small>"
+                ),
+            ], widths=[1.5, 1], align="center"),
+        ])
+
+    duck_curve_slide()
     return
 
 
@@ -868,7 +914,7 @@ def _(QUIET, day_demand, day_hours, merit, mo, pd, pypsa, solar_avail, terms, wi
                 limits = dict(p_min_pu=f.p_min_pu, ramp_limit_up=f.ramp_pu, ramp_limit_down=f.ramp_pu)
             n.add("Generator", g["unit"], bus="grid", p_nom=g["capacity"], marginal_cost=g["cost"],
                   p_max_pu=wind_avail if g["unit"] == "Wind" else 1.0, **limits)
-        n.add("Generator", "Solar", bus="grid", p_nom=300, marginal_cost=0, p_max_pu=solar_avail)
+        n.add("Generator", "Solar", bus="grid", p_nom=500, marginal_cost=0, p_max_pu=solar_avail)
         if battery:                          # 250 MW × 4 h = 1,000 MWh, 92% each way, e_24 = e_0
             n.add("StorageUnit", "Battery", bus="grid", p_nom=250, max_hours=4, efficiency_store=0.92,
                   efficiency_dispatch=0.92, cyclic_state_of_charge=True)
@@ -921,7 +967,7 @@ def _(day_demand, day_dispatch, day_dispatch_flex, day_hours, go, make_subplots,
         fig.update_xaxes(title="Hour", dtick=2, row=3, col=1)
 
         return mo.vstack([
-            mo.md("## The linked day: the battery shifts cheap energy into the evening peak"),
+            mo.md("## The linked day: the battery moves midday solar into the evening peak"),
             show_chart(fig, 470, legend=dict(orientation="h", x=0.01, y=1.0, yanchor="bottom", font=dict(size=12))),
             mo.md(r"<small>Top: dispatch. When generation rises above demand (black) to the dashed line, the excess charges the battery; in the evening the battery discharges to meet demand. "
                   r"Middle: price $\lambda_t$, now vs. the 24 independent hours. Bottom: energy stored in the battery.</small>"),
@@ -935,33 +981,37 @@ def _(day_demand, day_dispatch, day_dispatch_flex, day_hours, go, make_subplots,
 def _(day_dispatch_flex, mo):
     def flex_reading_slide():
         n, n0 = day_dispatch_flex(), day_dispatch_flex(battery=False)
-        price = n.buses_t.marginal_price["grid"]
+        price, price0 = n.buses_t.marginal_price["grid"], n0.buses_t.marginal_price["grid"]
+
         def curtailed(m):
             vre = ["Wind", "Solar"]
             avail = m.generators.p_nom[vre] * m.generators_t.p_max_pu[vre]
             return (avail - m.generators_t.p[vre]).clip(lower=0).sum().sum()
-        solar = n.generators_t.p["Solar"]
+
         battery = n.storage_units_t.p["Battery"]
-        buy = (price * -battery.clip(upper=0)).sum() / -battery.clip(upper=0).sum()
-        sell = (price * battery.clip(lower=0)).sum() / battery.clip(lower=0).sum()
+        charge, discharge = -battery.clip(upper=0), battery.clip(lower=0)
+        buy, sell = (price * charge).sum() / charge.sum(), (price * discharge).sum() / discharge.sum()
+        free = price0[price0.abs() < 0.5].index           # hours priced at $0 without the battery
+        net = n.loads_t.p_set["demand"] - (n.generators.p_nom * n.generators_t.p_max_pu)[["Wind", "Solar"]].sum(axis=1)
+        low, high = net.iloc[:18].idxmin(), net.idxmax()
         coal = n.generators_t.p["Coal"]
         return mo.md(
             f"""
-    ## Reading the result: what linking the hours changes
+    ## Reading the result: the battery and the duck
 
     | | Ramps only | Ramps + battery |
     |:---|---:|---:|
     | Cost of the day | \\${n0.objective:,.0f} | **\\${n.objective:,.0f}** |
-    | Wind and solar curtailed | {curtailed(n0):,.0f} MWh | **{curtailed(n):,.0f}** |
+    | Wind and solar curtailed | {curtailed(n0):,.0f} MWh | **{curtailed(n):,.0f} MWh** |
     | Peaker energy | {n0.generators_t.p["Peaker"].sum():,.0f} MWh | **{n.generators_t.p["Peaker"].sum():,.0f}** |
+    | Highest price | \\${price0.max():.0f}/MWh | **\\${price.max():.0f}/MWh** |
 
-    - **Without the battery**, nuclear ramps down to its **200 MW floor** overnight, and with coal and the CC at their minimums too, the LP still **curtails wind and solar** (price \\$5, or \\$0 at noon). With the battery, nuclear runs flat out all day.
-    - **The battery buys low and sells high**: it charges on night wind and noon solar at about **\\${buy:.0f}**/MWh and discharges into the evening at about **\\${sell:.0f}**. With 85% round trip, selling pays whenever the price beats the buying price ÷ 0.85 (\\${buy:.0f} ÷ 0.85 ≈ \\${buy / 0.85:.0f}).
-    - **Ramp limits bind**: at noon a cloud cuts solar by {solar.iloc[11] - solar.iloc[12]:.0f} MW, but coal can add only 30 MW/h, so the battery covers the dip and
-      **λ = \\${price.iloc[12]:.0f}**, an offer no unit made. After 8 pm coal can’t ramp down fast enough ({coal.iloc[20]:.0f} → {coal.iloc[21]:.0f} → {coal.iloc[22]:.0f} MW): at 22:00 **λ = \\${price.iloc[22]:.0f}, below coal’s \\$25**.
+    - **The belly**: without the battery, the price is **\\$0** from {free.min()}:00 to {free.max()}:00. Nuclear sits at its **200 MW floor**, coal and the CC at their minimums, so the LP curtails wind and solar. The battery soaks up **{charge.sum():,.0f} MWh**, bought at about \\${buy:.0f}, but can’t take it all.
+    - **The neck**: net load climbs {net[high] - net[low]:.0f} MW from {low}:00 to {high}:00. Nuclear (10 MW/h), coal (30) and the CC (60) ramp as fast as they can; without the battery the **peaker** fills the gap at \\$80. With it, the battery discharges up to {discharge.max():.0f} MW, sold at about \\${sell:.0f}.
+    - **Ramp limits set prices**: at 16:00 **λ = \\${price.iloc[16]:.0f}**, between coal’s \\$25 and the CC’s \\$35. Coal is climbing as fast as it can ({coal.iloc[15]:.0f} → {coal.iloc[16]:.0f} → {coal.iloc[17]:.0f} MW), so no unit’s offer equals the price.
     - KKT for unit $i$ now reads $c_i = \\lambda_t - \\overline\\mu_{{i,t}} + \\underline\\mu_{{i,t}} + (\\text{{ramp duals at }} t \\text{{ and }} t{{+}}1)$: **each hour’s price depends on the others.**
 
-    <small>**Terms** — **curtail**: use less wind or solar than the weather allows &ensp;|&ensp; **ramp-row duals**: shadow prices of the ramp limits, nonzero only when a unit is ramping as fast as it can</small>
+    <small>**Terms** — **curtail**: use less wind or solar than the weather allows &ensp;|&ensp; **net load**: demand − wind − solar &ensp;|&ensp; **ramp-row duals**: shadow prices of the ramp limits, nonzero only when a unit is ramping as fast as it can</small>
     """
         )
 
