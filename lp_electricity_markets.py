@@ -1404,7 +1404,7 @@ def _(go, mo, show_chart, three_bus):
 
         return mo.vstack(
             [
-                mo.md("## You can’t route power: a three-bus loop"),
+                mo.md("## A price above every offer: LMP higher than either generator’s cost"),
                 mo.hstack(
                     [
                         show_chart(fig, 420),
