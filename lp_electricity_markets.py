@@ -556,11 +556,11 @@ def _(WEST, add_ba_plants, add_lines, base_map, mo, show_map, western):
 
 
 @app.cell(hide_code=True)
-def _(ASSETS, go, mo, pd, show_chart):
+def _(go, mo, show_chart, western):
     def buses_and_lines_slide():
         """From the physical grid to the model: substations become buses, wires become lines."""
-        n_buses = len(pd.read_parquet(ASSETS / "western_opf_buses.parquet"))
-        n_lines = len(pd.read_parquet(ASSETS / "western_opf_lines.parquet"))
+        n_buses = len(western["bus"])
+        n_lines = sum(branch["br_status"] == 1 for branch in western["branch"].values())  # in service
         buses = {"A": (0.0, 0.0), "B": (2.2, 0.2), "C": (1.0, 1.5), "D": (3.0, 1.6)}
         fig = go.Figure()
         for a, b, label in [("A", "B", ""), ("A", "C", ""), ("B", "C", ""), ("C", "D", "line: limit 300 MW"), ("B", "D", "")]:
@@ -1660,6 +1660,7 @@ def _(terms,
     ASSETS,
     QUIET,
     WEST,
+    json,
     add_path_limits,
     base_map,
     go,
@@ -1671,17 +1672,23 @@ def _(terms,
     western_network,
 ):
     def solve_or_load_western_opf():
-        """Solve once (~40 s) and store in assets/; afterwards just read the files."""
+        """Solve once (~40 s, mostly PyPSA building the LP and reading results back) and store in assets/; afterwards just read the files."""
         bus_file = ASSETS / "western_opf_buses.parquet"
         line_file = ASSETS / "western_opf_lines.parquet"
         path_file = ASSETS / "western_opf_paths.parquet"
-        if bus_file.exists() and line_file.exists() and path_file.exists():
-            return pd.read_parquet(bus_file), pd.read_parquet(line_file), pd.read_parquet(path_file)
+        stats_file = ASSETS / "western_opf_timing.json"
+        if all(f.exists() for f in (bus_file, line_file, path_file, stats_file)):
+            return (pd.read_parquet(bus_file), pd.read_parquet(line_file), pd.read_parquet(path_file),
+                    json.loads(stats_file.read_text()))
 
+        import time
         paths = path_limits(western)
         n = western_network(western)
+        start = time.perf_counter()
         n.optimize(solver_name="highs", solver_options=QUIET,
                    extra_functionality=add_path_limits(paths))
+        stats = {"seconds": time.perf_counter() - start,                       # PyPSA: build, solve, read back
+                 "solver_seconds": float(n.model.solver_model.getRunTime())}   # HiGHS alone
         info = pd.DataFrame(western["bus"].values())
         info.index = info.bus_i.astype(str)
         buses = pd.DataFrame(
@@ -1706,11 +1713,21 @@ def _(terms,
         buses.to_parquet(bus_file)
         lines.to_parquet(line_file)
         paths_df.to_parquet(path_file)
-        return buses, lines, paths_df
+        stats_file.write_text(json.dumps(stats, indent=1))
+        return buses, lines, paths_df, stats
 
-    opf_buses, opf_lines, opf_paths = solve_or_load_western_opf()
+    opf_buses, opf_lines, opf_paths, opf_stats = solve_or_load_western_opf()
 
-    def western_lmp_slide(buses, lines, paths):
+    def western_lp_size():
+        """Build (don't solve) the same LP and count its rows and columns (~5 s)."""
+        n = western_network(western)
+        n.optimize.create_model()
+        add_path_limits(path_limits(western))(n, n.snapshots)
+        return int(n.model.nvars), int(n.model.ncons)
+
+    opf_stats["variables"], opf_stats["constraints"] = western_lp_size()
+
+    def western_lmp_slide(buses, lines, paths, stats):
         def segments(subset):
             xs, ys = [], []
             for b0, b1 in zip(subset.bus0, subset.bus1):
@@ -1721,7 +1738,7 @@ def _(terms,
         binding_paths = paths[paths.price > 1e-6].sort_values("price", ascending=False)
         path_lines = lines.loc[[l for ls in binding_paths["lines"] for l in ls.split(",")]]
 
-        fig = base_map(**WEST, height=480)
+        fig = base_map(**WEST, height=450)
         xs, ys = segments(lines[~lines.binding])
         fig.add_trace(go.Scattergl(x=xs, y=ys, mode="lines", name="Lines",
                                    line=dict(color="#D5CFC2", width=0.6), hoverinfo="skip"))
@@ -1752,10 +1769,14 @@ def _(terms,
                         show_map(fig),
                         mo.vstack(
                             [
-                                mo.stat(f"{len(binding_paths)} paths, {int(lines.binding.sum())} lines",
-                                        label="Binding limits"),
-                                mo.stat(f"${buses.lmp.quantile(0.05):.0f} to ${buses.lmp.quantile(0.95):.0f}",
-                                        label="LMPs, 5th–95th percentile"),
+                                mo.md(
+                                    f"| | |\n|:---|:---|\n"
+                                    f"| Binding limits | **{len(binding_paths)} paths, {int(lines.binding.sum())} lines** |\n"
+                                    f"| Middle 90% of LMPs | **\\${buses.lmp.quantile(0.05):.0f} to \\${buses.lmp.quantile(0.95):.0f}** |\n"
+                                    f"| Variables | **{stats['variables']:,}** |\n"
+                                    f"| Constraints | **{stats['constraints']:,}** |\n"
+                                    f"| Solve time | **{stats['solver_seconds']:.1f} s** in HiGHS; {stats['seconds']:.0f} s with PyPSA’s setup |"
+                                ),
                                 mo.md(
                                     f"**Path limits** between regions split the West into price zones: the "
                                     f"Northwest averages **\\${northwest:.0f}/MWh**, the desert Southwest "
@@ -1765,7 +1786,7 @@ def _(terms,
                             ]
                         ),
                     ],
-                    widths=[2.0, 1.25],
+                    widths=[1.7, 1.3],
                 ),
                 mo.md(
                     f"<small>Path duals (\\$/MWh of transfer): {path_list}. GridSFM western model, 4 pm 15 Jul 2024, "
@@ -1775,7 +1796,7 @@ def _(terms,
             ]
         )
 
-    mo.vstack([western_lmp_slide(opf_buses, opf_lines, opf_paths), terms(r"**price zone**: region with similar LMPs, separated by binding limits")])
+    mo.vstack([western_lmp_slide(opf_buses, opf_lines, opf_paths, opf_stats), terms(r"**price zone**: region with similar LMPs, separated by binding limits")])
     return opf_buses, opf_lines, opf_paths
 
 
