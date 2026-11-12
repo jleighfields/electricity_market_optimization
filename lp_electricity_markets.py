@@ -928,13 +928,15 @@ def _(QUIET, day_demand, day_hours, merit, mo, pd, pypsa, solar_avail, terms, wi
 
 
 @app.cell(hide_code=True)
-def _(day_demand, day_dispatch, day_dispatch_flex, day_hours, go, make_subplots, mo, show_chart):
+def _(day_demand, day_dispatch_flex, day_hours, go, make_subplots, mo, show_chart):
     def flex_day_slide():
         n = day_dispatch_flex()
         dispatch = n.generators_t.p.clip(lower=0) + 0.0
         battery = n.storage_units_t.p["Battery"]
         price = n.buses_t.marginal_price["grid"]
-        price_before = day_dispatch().buses_t.marginal_price["grid"]
+        no_battery = day_dispatch_flex(battery=False)       # same LP, ramps and minimums, no battery
+        price_before = no_battery.buses_t.marginal_price["grid"]
+        saved = no_battery.objective - n.objective
 
         fig = make_subplots(3, 1, shared_xaxes=True, row_heights=[0.58, 0.24, 0.18], vertical_spacing=0.05)
         colors = {"Solar": "#E8C547", "Wind": "#5B9A6B", "Nuclear": "#8A6FB0", "Coal": "#6A6A6A",
@@ -952,12 +954,12 @@ def _(day_demand, day_dispatch, day_dispatch_flex, day_hours, go, make_subplots,
         fig.add_scatter(x=day_hours, y=day_demand, name="Demand", mode="lines",
                         line=dict(shape="hv", color="black", width=2.5),
                         hovertemplate="Demand: %{y:.0f} MW<extra></extra>", row=1, col=1)
-        fig.add_scatter(x=day_hours, y=price_before, name="λ, hours independent", mode="lines",
+        fig.add_scatter(x=day_hours, y=price_before, name="λ without battery", mode="lines",
                         line=dict(shape="hv", color="#9A9A9A", width=1.5, dash="dot"),
-                        hovertemplate="independent: $%{y:.0f}/MWh<extra></extra>", row=2, col=1)
-        fig.add_scatter(x=day_hours, y=price, name="λ, linked day", mode="lines",
+                        hovertemplate="without battery: $%{y:.0f}/MWh<extra></extra>", row=2, col=1)
+        fig.add_scatter(x=day_hours, y=price, name="λ with battery", mode="lines",
                         line=dict(shape="hv", color="#A84F0A", width=2),
-                        hovertemplate="linked: $%{y:.0f}/MWh<extra></extra>", row=2, col=1)
+                        hovertemplate="with battery: $%{y:.0f}/MWh<extra></extra>", row=2, col=1)
         fig.add_scatter(x=day_hours, y=n.storage_units_t.state_of_charge["Battery"], name="Stored (MWh)",
                         mode="lines", line=dict(color="#3E8FB0", width=2), showlegend=False,
                         hovertemplate="Stored: %{y:.0f} MWh<extra></extra>", row=3, col=1)
@@ -968,9 +970,12 @@ def _(day_demand, day_dispatch, day_dispatch_flex, day_hours, go, make_subplots,
 
         return mo.vstack([
             mo.md("## The linked day: the battery moves midday solar into the evening peak"),
-            show_chart(fig, 470, legend=dict(orientation="h", x=0.01, y=1.0, yanchor="bottom", font=dict(size=12))),
+            show_chart(fig, 430, legend=dict(orientation="h", x=0.01, y=1.0, yanchor="bottom", font=dict(size=12))),
+            mo.md(f"**Value of the battery:** the day’s system cost falls from \\${no_battery.objective:,.0f} to "
+                  f"\\${n.objective:,.0f}, **\\${saved:,.0f} ({saved / no_battery.objective:.0%}) less**: "
+                  "stored solar replaces curtailment and the \\$80 peaker."),
             mo.md(r"<small>Top: dispatch. When generation rises above demand (black) to the dashed line, the excess charges the battery; in the evening the battery discharges to meet demand. "
-                  r"Middle: price $\lambda_t$, now vs. the 24 independent hours. Bottom: energy stored in the battery.</small>"),
+                  r"Middle: price $\lambda_t$ with and without the battery (same ramps and minimums). Bottom: energy stored in the battery.</small>"),
         ])
 
     flex_day_slide()
