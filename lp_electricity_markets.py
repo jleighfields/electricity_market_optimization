@@ -1182,7 +1182,7 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
                                text=f"<b>{label}</b>" if binding else label, showarrow=False)
         for k, (bus, (x, y)) in enumerate(pos.items(), start=1):
             gen = f"Gen{k}"
-            label = f"{bus}: Gen{k} (${n.generators.marginal_cost[gen]:.0f}) {abs(output[gen]):.0f} MW"
+            label = f"{bus}: Gen{k} (${n.generators.marginal_cost[gen]:.0f})<br>runs {abs(output[gen]):.0f} of {n.generators.p_nom[gen]:.0f} MW"
             if bus in loads:
                 label += f"<br>load {loads[bus]:.0f} MW"
             label += f"<br>LMP {dollars(lmp[bus])}"
@@ -1194,7 +1194,7 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
         fig.update_xaxes(range=[-1.0, 3.0], visible=False)
         fig.update_yaxes(range=[-0.9, 2.5], visible=False)
 
-        saved = " (was \\$7,600: the extra load **saved \\$60**)" if add_load else ""
+        saved = ", **\\$60 less**" if add_load else ""
         return mo.vstack(
             [
                 mo.md("## A negative price: more load, lower cost"),
@@ -1203,15 +1203,14 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
                         mo.vstack([show_chart(fig, 380), bus1_load_switch]),
                         mo.md(
                             f"""
-    Line 1–3 is limited to **10 MW**, and every MW sent to Bus3 loads it: 2/3 MW from Gen1, 1/3 MW
-    from Gen2. Per MW of that scarce line, Gen2 saves \\$80/(1/3) = \\$240 over Gen3; Gen1 only
-    \\$90/(2/3) = \\$135. So the **cheapest unit isn’t used at all**.
+    Line 1–3 is limited to **10 MW**. As a pure **network flow**, cheap Gen1 would serve all 100 MW at Bus3,
+    90 of it around through Bus2 (cost \\$1,000). But Kirchhoff’s law splits the flow: each MW from Gen1 puts
+    2/3 MW on line 1–3, from Gen2 only 1/3. To stay within the flow limit, the **cheapest unit runs at 0** and the
+    **expensive Gen3 runs at {output['Gen3']:.0f} MW** instead of 0 (cost **\\${n.objective:,.0f}**{saved}).
 
     The LMP at Bus1 is **{dollars(lmp['Bus1'], escape=True)}/MWh**. One more MWh of load at Bus1 *pulls flow back*
     against the congested line, letting the system shift **+2 MWh to Gen2, −1 MWh from Gen3**:
-    $2(20) - 1(100) = -60$.
-
-    Total cost: **\\${n.objective:,.0f}**{saved}. Flip the switch to re-solve.
+    $2(20) - 1(100) = -60$. Flip the switch to re-solve.
 
     Real negative prices usually come from wind and solar with production tax credits or from
     inflexible units; this one comes purely from **Kirchhoff’s law** and a congested line.
@@ -1223,7 +1222,7 @@ def _(terms, baker_three_bus, bus1_load_switch, go, mo, show_chart):
     """
                         ),
                     ],
-                    widths=[1.1, 1],
+                    widths=[1, 1.15],
                 ),
             ]
         )
