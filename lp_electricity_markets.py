@@ -2387,19 +2387,19 @@ def _(ASSETS, go, json, make_subplots, mo, pd, show_chart):
                 show_chart(fig, 400, legend=dict(x=0.35, y=0.98, font=dict(size=12))),
                 mo.md(
                     f"""
-    A bigger unit commitment: **{run['units']} units × {run['hours']} hours**, {run['variables']:,} variables
-    ({run['binaries']:,} binary), {run['constraints']:,} constraints.
+    - **Best solution** (orange): the cheapest real schedule found so far.
+    - **Best bound** (blue): the LP relaxation, with on/off allowed between 0 and 1 (a unit 37% on). More freedom can
+      only lower the cost, so no real schedule beats it. It **rises fast early** as the solver adds cutting planes that
+      rule out fractional on/off; after that only branching (unit on vs. off) helps, slowly.
 
-    **gap** = (best solution − best bound) / best solution
-
-    - First schedule after {first.seconds:.1f} s: **{100 * first.gap:.1f}%** from the bound.
-    - Stopped at the **{run['time_limit']} s** limit: **{100 * run['gap']:.2f}%**, i.e. at most
-      **\\${run['cost'] - run['bound']:,.0f}** above optimal on a \\${run['cost'] / 1e6:.1f}M day.
-    - So a solve stopped early still comes with a **guarantee**.
+    **gap** = (best solution − best bound) / best solution: **{100 * first.gap:.1f}%** at the first schedule
+    ({first.seconds:.1f} s), **{100 * run['gap']:.2f}%** at the {run['time_limit']} s limit, i.e. at most
+    **\\${run['cost'] - run['bound']:,.0f}** above optimal. Stopped early, it still comes with a **guarantee**.
     """
                 ),
             ], widths=[1.35, 1], align="center"),
-            mo.md("<small>HiGHS on a laptop; illustrative fleet. Run it yourself: `uv run marimo run optimality_gap_demo.py` "
+            mo.md(f"<small>{run['units']} units × {run['hours']} hours: {run['variables']:,} variables ({run['binaries']:,} binary), "
+                  f"{run['constraints']:,} constraints. HiGHS on a laptop; illustrative fleet. Run it yourself: `uv run marimo run optimality_gap_demo.py` "
                   "(choose units, hours, time limit and target gap).</small>"),
         ])
 
