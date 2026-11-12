@@ -2477,7 +2477,8 @@ def _(ASSETS, go, json, make_subplots, mo, pd, show_chart):
         return mo.vstack([
             mo.md("## Solving under a deadline: watching the optimality gap close"),
             mo.hstack([
-                show_chart(fig, 400, legend=dict(x=0.35, y=0.98, font=dict(size=12))),
+                show_chart(fig, 400, margin=dict(l=10, r=10, t=40, b=10),
+                           legend=dict(orientation="h", x=0, y=1.02, yanchor="bottom", font=dict(size=12))),
                 mo.md(
                     f"""
     - **Best solution** (orange): the cheapest real schedule found so far.
