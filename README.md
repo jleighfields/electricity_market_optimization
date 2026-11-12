@@ -93,6 +93,9 @@ rsconnect deploy fastapi --entrypoint app:app \
     --exclude ".venv/*" --exclude "assets/raw/*" --exclude "__marimo__/*" --exclude "*.html" .
 ```
 
+- **Posit Connect Cloud (deploy from GitHub):** choose framework **Shiny**, primary file `app.py`, and **Python 3.12** or newer
+  (the default 3.11 is too old for the pinned packages). Connect Cloud has no FastAPI option, but `shiny run app:app`
+  serves any ASGI app, so `shiny` is in `requirements.txt`.
 - Connect installs `requirements.txt`. After changing dependencies, regenerate it:
   `uv export --group connect --no-hashes --no-dev --no-emit-project --format requirements-txt -o requirements.txt`
 - marimo needs WebSockets between the browser and the server; Connect must allow them (it does for Shiny apps).
