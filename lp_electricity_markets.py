@@ -941,7 +941,7 @@ def _(terms, go, limit_slider, mo, show_chart, two_bus):
             ]
         )
 
-    mo.vstack([two_bus_slide(limit_slider.value), terms(r"**congestion rent**: what loads pay minus what generators receive, because prices differ across a full line &ensp;|&ensp; **FTR**: financial right to that rent (next slide)")])
+    mo.vstack([two_bus_slide(limit_slider.value), terms(r"**congestion**: a line at its limit, so costlier power nearer the load must run &ensp;|&ensp; **congestion rent**: what loads pay minus what generators receive, because prices differ across a congested line &ensp;|&ensp; **FTR**: financial right to that rent (next slide)")])
     return
 
 
