@@ -78,9 +78,6 @@ def _():
         10, 200, step=10, value=100, label="Line limit (MW)", show_value=True
     )
     bus1_load_switch = mo.ui.switch(label="Add 1 MW of load at Bus 1")
-    requirement_slider = mo.ui.slider(
-        8000, 11000, step=100, value=10000, label="Capacity requirement (MW)", show_value=True
-    )
     contract_dropdown = mo.ui.dropdown(
         options=["Flat forward", "On-peak forward", "Solar PPA"], value="Solar PPA", label="Contract"
     )
@@ -92,7 +89,7 @@ def _():
         """
     # How electricity markets run on linear programming
 
-    ### Merit order, locational prices, unit commitment, and portfolio management
+    ### Short-term markets: merit order, locational prices, reserves, unit commitment, and portfolio management
 
     Code and data: [github.com/jleighfields/electricity_market_optimization](https://github.com/jleighfields/electricity_market_optimization)
     """
@@ -116,7 +113,6 @@ def _():
         show_chart,
         contract_dropdown,
         cvar_slider,
-        requirement_slider,
         terms,
     )
 
@@ -171,10 +167,10 @@ def _(mo):
     | 1 | [**Electricity markets 101**](#/3) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how bidding works | — |
     | 2 | [**Economic dispatch**](#/12) | The merit order, and why every generator is paid the same price | LP; the price **is** the dual |
     | 3 | [**Adding the network**](#/21) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves and capacity**](#/38) | Holding capacity in reserve, getting paid for energy and reserves, capacity markets | New constraints, new duals |
-    | 5 | [**Unit commitment**](#/46) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/55) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/69) | Additional topics, a summary, glossary and sources | — |
+    | 4 | [**Reserves**](#/38) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
+    | 5 | [**Unit commitment**](#/42) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
+    | 6 | [**Portfolio management**](#/51) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
+    | 7 | [**Wrap-up**](#/65) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -1572,13 +1568,13 @@ def _(terms, go, mo, pd, show_chart):
 def _(mo):
     mo.md(
         r"""
-    # 4 · Reserves and capacity
+    # 4 · Reserves
 
     **So far:** the LP buys just enough energy (MWh) for this interval, at the right place.
 
-    **But:** a plant can trip at any moment, forecasts miss, and someone has to build plants for future peaks.
+    **But:** a plant can trip at any moment, and wind, solar and load forecasts miss.
 
-    **Next:** add requirement constraints for reserves and capacity. Each new row brings its own price.
+    **Next:** add a reserve requirement to the LP. The new row brings its own price.
     """
     )
     return
@@ -1589,25 +1585,21 @@ def _(mo):
     mo.md(
         r"""
 
-    ## Why reserves and capacity? Reliability needs MW, not just MWh
+    ## Why reserves? Reliability needs MW held back, not just MWh
 
-    The energy LP buys **MWh** for the next interval. Two reliability questions remain:
+    The energy LP buys exactly enough **MWh** for the next interval. But within that interval:
 
-    | Horizon | Question | Market answer |
+    | What can go wrong | How big | What covers it |
     |:---|:---|:---|
-    | **Minutes** | If the largest plant trips, or wind drops, who covers it right now? | **Operating reserves**: MW held back, co-optimized with energy |
-    | **Years** | Will enough plants exist for the hottest hour of a future year? | **Resource adequacy**: capacity markets or RA requirements |
+    | The **largest plant or line trips** | Hundreds of MW, instantly | **Contingency reserve**: spinning units pick up within ~10 minutes |
+    | **Wind, solar or load forecasts miss** | Grows with wind and solar | **Regulation** and **ramping** reserves, adjusted every few seconds to minutes |
+    | **Supply runs short anyway** | Rare, but costly | **Scarcity pricing**: prices rise steeply as reserves fall (ERCOT caps them at \$5,000/MWh) |
 
-    **Why energy prices alone may not get plants built (the *missing money* problem):**
-    - A **peaker** may run only a few hundred hours a year, and must earn back its fixed costs in those hours.
-    - **Price and offer caps** clip exactly those scarcity hours (FERC caps ISO/RTO offers at \$1,000/MWh, or verified cost up to \$2,000).
-    - **Demand barely responds**, so in a true shortage operators shed load instead of raising the price. Reliability is
-      shared by everyone, so no single buyer pays for enough of it.
+    - Reserve is **MW of headroom**, held back and ready, not energy produced. Most of it is never used.
+    - Holding MW back has a cost: that MW can’t sell energy. So the ISO **co-optimizes** energy and reserves in one LP.
+    - Whether enough plants get **built** for future peaks (resource adequacy, capacity markets) is a planning question for the companion talk.
 
-    Two responses, both in this section: **pay separately for MW** (capacity markets), or let **scarcity prices** run very
-    high (ERCOT, energy-only, capped at \$5,000/MWh since 2022).
-
-    <small>**Terms** — **peaker**: plant that runs only at peak demand &ensp;|&ensp; **shed load**: controlled blackouts &ensp;|&ensp; **resource adequacy (RA)**: enough capacity to meet peak plus a margin</small>
+    <small>**Terms** — **spinning**: already running, with spare headroom &ensp;|&ensp; **regulation**: reserve that follows second-to-second imbalance &ensp;|&ensp; **ramping**: reserve for fast MW changes &ensp;|&ensp; **resource adequacy (RA)**: enough capacity to meet peak plus a margin</small>
     """
     )
     return
@@ -1664,130 +1656,6 @@ def _(mo):
     <small>**Terms** — **spinning reserve**: spare capacity on a unit that is already running &ensp;|&ensp; **deployed**: reserve the ISO actually calls on &ensp;|&ensp; as before: $\lambda, \sigma$: energy, reserve prices &ensp;|&ensp; $p_i, r_i$: energy, reserve MW &ensp;|&ensp; $c_i, b_i$: their offers &ensp;|&ensp; $\underline P_i, \overline P_i$: min, max &ensp;|&ensp; $\underline\mu_i$: dual of the min &ensp;|&ensp; **uplift**: a make-whole payment from the ISO, outside the price, covering that shortfall (more under unit commitment)</small>
     """
     )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-    ## Paying for capacity: resource adequacy
-
-    The first answer to *missing money*: pay for **MW** directly. Three US approaches:
-
-    | Approach | Where | How it works |
-    |:---|:---|:---|
-    | **Centralized capacity auction** | PJM, MISO, ISO-NE, NYISO | The ISO buys capacity against a sloped demand curve, from weeks ahead (MISO, NYISO) to up to about 3 years ahead (PJM); one clearing price per zone. |
-    | **Bilateral RA market** | California (CAISO) | No auction. LSEs buy RA bilaterally from resource owners, and the CPUC requires each of its LSEs to show contracts covering its load in **every hour of each month’s peak day** (“slice-of-day,” since 2025) plus a planning reserve margin. Publicly owned utilities follow their own regulators. CAISO enforces offer obligations and backstop procurement. |
-    | **Energy-only** | ERCOT | No capacity product. Scarcity pricing: reserve demand curves, co-optimized with energy, raise prices when reserves run short. |
-
-    In an **auction**, the **capacity price is a dual**: the shadow price of the reliability requirement. (A bilateral RA price is negotiated; ERCOT has no capacity price.)
-
-    <small>**Terms** — **capacity** (the product): a promise to be available, paid per MW &ensp;|&ensp; **CPUC**: California’s utility regulator &ensp;|&ensp; **planning reserve margin**: required capacity above forecast peak &ensp;|&ensp; **bilateral**: negotiated buyer-to-seller, not cleared by the ISO &ensp;|&ensp; **offer obligation**: RA capacity must be offered into CAISO &ensp;|&ensp; **backstop procurement**: CAISO buys any shortfall &ensp;|&ensp; **scarcity pricing**: very high prices when reserves run short</small>
-    """
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-    ## Where the demand curve comes from
-
-    In a capacity auction, consumers don’t bid. **The ISO sets the demand curve** from two studies:
-
-    | Axis | Set by | How |
-    |:---|:---|:---|
-    | **Quantity** (MW) | Reliability study | Forecast peak load plus the reserve margin needed to meet a loss-of-load target, typically **“one day in ten years.”** This is the *reliability requirement*. |
-    | **Price** (\$/MW-day) | Net CONE | **Cost of new entry** for a reference new plant (usually a gas combustion turbine, as in PJM), **net** of the energy and reserve revenue it expects to earn: the “missing money” a new plant needs. |
-
-    - The curve **slopes down** because each MW beyond the requirement buys less extra reliability, and a
-      vertical requirement would make prices jump between zero and the cap.
-    - PJM calls it the **VRR (Variable Resource Requirement) curve**; MISO, ISO-NE and NYISO have their own versions.
-    - In the LP, each demand-curve step $m$ is a variable $d_m$ (MW bought) worth $w_m$ (\$/MW-day), so the auction **maximizes welfare**:
-      the area under the demand curve minus the cost of the cleared offers.
-
-    <small>**Terms** — **\$/MW-day**: price to keep 1 MW available for one day &ensp;|&ensp; **LOLE** (loss-of-load expectation): expected days per year with too little supply; “one day in ten years” = 0.1 &ensp;|&ensp; **CT**: combustion turbine, a simple gas peaker</small>
-    """
-    )
-    return
-
-
-@app.cell
-def _(terms, linprog, mo, np, pd):
-    def clear_capacity_auction(requirement):
-        offers = pd.DataFrame({  # $/MW-day
-            "resource": ["Nuclear", "Gas CC", "Coal", "Battery", "Gas CT",
-                         "Demand response", "New CT"],
-            "mw": [3000, 3000, 2000, 800, 1500, 500, 1000],
-            "price": [0, 30, 50, 90, 120, 200, 300],
-        })
-        net_cone = 250  # $/MW-day: a reference new plant's fixed cost minus its expected market revenue
-        demand = pd.DataFrame({  # set by the ISO: price steps relative to Net CONE,
-            "mw": [requirement - 600, 600, 600],  # centered on the reliability requirement
-            "value": [1.8 * net_cone, net_cone, 0.32 * net_cone],
-        })
-        # Variables: x_i = MW cleared from offer i, d_m = MW bought on demand step m.
-        # max welfare = min Σ c_i x_i − Σ w_m d_m  s.t.  Σ x_i = Σ d_m  (π),  bounds below
-        cost = np.concatenate([offers.price, -demand.value])        # objective coefficients
-        balance = np.concatenate([np.ones(len(offers)), -np.ones(len(demand))])  # Σx − Σd = 0
-        bounds = [(0, q) for q in offers.mw] + [(0, q) for q in demand.mw]       # step sizes
-        res = linprog(cost, A_eq=[balance], b_eq=[0], bounds=bounds, method="highs")
-        offers["cleared"] = res.x[: len(offers)]
-        price = res.eqlin.marginals[0]  # dual of the balance row: the clearing price π
-        return offers, demand, price
-
-    mo.vstack([mo.md("## Code: clearing a capacity auction with `scipy.optimize.linprog`"), mo.show_code(), terms(r"**demand response**: customers paid to cut use on request &ensp;|&ensp; $x_i$, $c_i$: MW cleared from offer $i$ and its price &ensp;|&ensp; $d_m$, $w_m$: MW bought on demand step $m$ and its value &ensp;|&ensp; $\pi$: clearing price (\$/MW-day)")])
-    return (clear_capacity_auction,)
-
-
-@app.cell(hide_code=True)
-def _(clear_capacity_auction, go, mo, np, requirement_slider, show_chart):
-    def capacity_auction_slide(requirement):
-        offers, demand, price = clear_capacity_auction(requirement)
-
-        fig = go.Figure()
-        supply = offers.sort_values("price")
-        fig.add_trace(go.Scatter(
-            x=np.concatenate([[0], supply.mw.cumsum()]),
-            y=np.concatenate([supply.price, [supply.price.iloc[-1]]]),
-            mode="lines", line=dict(shape="hv", color="#2F4A7A", width=2.5), name="Supply offers",
-        ))
-        fig.add_trace(go.Scatter(
-            x=np.concatenate([[0], demand.mw.cumsum()]), y=np.concatenate([demand.value, [0]]),
-            mode="lines", line=dict(shape="hv", color="#E07A1F", width=2.5), name="Demand curve",
-        ))
-        fig.add_hline(price, line=dict(color="#A84F0A", dash="dash", width=1.5))
-        fig.add_annotation(x=200, y=price, text=f"<b>Clearing price ${price:.0f}/MW-day</b>",
-                           showarrow=False, xanchor="left", yanchor="bottom", yshift=4,
-                           font=dict(color="#A84F0A"))
-        fig.add_vline(requirement, line=dict(color="#6A6A6A", dash="dot", width=1.5))
-        side = 1 if requirement <= 10300 else -1  # label beside the line, away from the plot edge
-        fig.add_annotation(x=requirement + side * 150, y=470, text="Reliability<br>requirement",
-                           showarrow=False, xanchor="left" if side > 0 else "right", yanchor="top",
-                           align="left" if side > 0 else "right", font=dict(size=12, color="#6A6A6A"))
-        fig.update_xaxes(title="MW")
-        fig.update_yaxes(title="$/MW-day", range=[0, 480])
-
-        cleared = offers.set_index("resource")[["price", "mw", "cleared"]].round(0)
-        return mo.vstack(
-            [
-                mo.md("## Clearing the auction: the price is the dual of the balance"),
-                requirement_slider,
-                mo.hstack([show_chart(fig, 380, legend=dict(x=0.01, y=0.5, yanchor="middle")), cleared],
-                          widths=[1.4, 1]),
-                mo.md(
-                    f"Cleared **{offers.cleared.sum():,.0f} MW**. Every cleared resource is paid "
-                    f"**\\${price:.0f}/MW-day**, the dual $\\pi$ of MW cleared = MW bought, whatever it offered. "
-                    "Raise the requirement and watch more expensive resources clear and the price step up.\n\n"
-                    "<small>Illustrative offers and demand curve: steps at 1.8×, 1.0× and 0.32× a Net CONE "
-                    "of \\$250/MW-day, centered on the requirement.</small>"
-                ),
-            ]
-        )
-
-    capacity_auction_slide(requirement_slider.value)
     return
 
 
@@ -2924,11 +2792,10 @@ def _(mo):
     - **Uncertainty.** Wind and solar forecasts err. ISOs still run *deterministic* unit commitment and
       cover the error with reserve and ramping products; *stochastic* and *robust* unit commitment, which
       optimize across scenarios, remain mostly research.
-    - **Integrated resource planning (IRP).** Utilities choose what to build or buy from a menu (solar, wind, storage,
-      gas, transmission, efficiency) to serve load 10–20+ years out. A *capacity-expansion* LP or MILP picks the mix, but the
-      assets last 25–60+ years, so they face very uncertain loads, fuel costs, technology costs and public policy.
-      **Two-stage stochastic programs** (build now, operate per scenario) address this directly: see PyPSA’s
-      [stochastic optimization example](https://docs.pypsa.org/latest/examples/stochastic-optimization/).
+    - **Capacity markets and integrated resource planning (IRP)** *(a companion talk on mid- and long-term optimization)*.
+      Energy prices alone may not pay for enough plants (*missing money*), so PJM, MISO, ISO-NE and NYISO run **capacity auctions**:
+      an LP whose clearing price is the dual of the reliability requirement. Utilities choose what to build in an **IRP**,
+      using a *capacity-expansion* LP or MILP over 10–20+ years of uncertain loads, costs and policy.
     - **Batteries.** State of charge links every hour to the next, and a battery’s real cost is the
       *opportunity cost* of energy it could sell later, so how storage should bid, and how ISOs should model and mitigate it, is still being worked out.
       With round-trip losses an LP may also charge and discharge at once to burn energy when prices are
@@ -2953,7 +2820,7 @@ def _(mo):
     | 1 | **Electricity markets 101** | Supply must match demand every second and physics picks the path, so an ISO solves an optimization every few minutes. |
     | 2 | **Economic dispatch** | The merit order solves the dispatch LP. The price is the **dual** of supply = demand, and it makes the schedule each generator’s own best choice. |
     | 3 | **Adding the network** | DC-OPF is min-cost network flow plus Kirchhoff’s law. One balance row per bus gives one price per bus (LMP); binding lines make prices differ, even go negative. |
-    | 4 | **Reserves and capacity** | Each new requirement row adds a product with its own price (reserves, capacity). Missing money is why capacity markets exist. |
+    | 4 | **Reserves** | A reserve requirement row adds a product with its own price, coupled to energy through each unit’s capacity. |
     | 5 | **Unit commitment** | On/off decisions make the day-ahead market a MILP with no duals. ISOs fix the binaries to price, then pay uplift, or price a relaxation (fast-start, ELMP). |
     | 6 | **Portfolio management** | Market participants solve LPs too: CVaR-limited hedging is a two-stage stochastic program whose duals price risk and cap what to pay for a contract. |
 
@@ -3229,7 +3096,7 @@ def _(mo):
     | [**PyPSA**](https://pypsa.org) ([docs](https://docs.pypsa.org), [GitHub](https://github.com/PyPSA/PyPSA)) | Python for Power System Analysis: open-source power-system modeling. Builds the dispatch, DC-OPF and unit-commitment models here. |
     | [**HiGHS**](https://highs.dev) | Open-source LP/MILP solver used by PyPSA and by `scipy.optimize.linprog`. |
     | [**linopy**](https://github.com/PyPSA/linopy) | The optimization modeling layer under PyPSA. |
-    | [**SciPy `linprog`**](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linprog.html) | Plain-matrix LP interface: capacity auction and hedging LPs. |
+    | [**SciPy `linprog`**](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linprog.html) | Plain-matrix LP interface: hedging LPs. |
     | [**marimo**](https://marimo.io) | Reactive Python notebooks; this deck is one, presented in slides layout. |
 
     **This deck:** notebook, data and build scripts at [github.com/jleighfields/electricity_market_optimization](https://github.com/jleighfields/electricity_market_optimization).

@@ -1,16 +1,27 @@
-# LP in electricity markets presentation
+# LP in electricity markets presentations
 
-A marimo notebook that presents as slides, with live LP/MILP demos (PyPSA + HiGHS, SciPy `linprog`):
+Two marimo notebooks that present as slides, with live LP/MILP demos (PyPSA + HiGHS, SciPy `linprog`).
+
+## `lp_electricity_markets.py`: short-term markets
+
 
 - merit order and single-bus economic dispatch
 - two-bus congestion and three-bus loop flow (DC-OPF)
 - maps of US plants, ISOs/RTOs, WECC balancing authorities and the western grid
 - DC-OPF prices on a 5,076-bus western grid model
-- capacity auction clearing
+- co-optimized energy and reserves
 - 24-hour unit commitment MILP, the convex-hull view of why MILPs lack duals, and uplift
 - LSE portfolio hedging on real CAISO prices: CVaR-limited hedging LP with fixed-price contracts, price sensitivity,
   and the highest acceptable price for bilateral offers, read from the solved LP
 - glossary, sources and live ISO price-map links in the appendix
+
+## `lp_planning.py`: mid- and long-term planning (work in progress)
+
+- the missing-money problem, resource adequacy approaches, and the ISO's capacity demand curve
+- capacity auction clearing (the price is the dual of the balance)
+- integrated resource planning: a PyPSA capacity-expansion LP on two representative days, with a
+  planning reserve margin and a CO2 cap whose duals are the capacity and carbon prices
+- zero profit: every built resource's energy margin plus capacity payment equals its build cost
 
 ## Run it on any computer
 
@@ -21,12 +32,14 @@ A marimo notebook that presents as slides, with live LP/MILP demos (PyPSA + HiGH
 uv sync                                           # builds .venv from uv.lock (Python 3.12)
 uv run marimo run lp_electricity_markets.py       # present: opens in slides layout
 uv run marimo edit lp_electricity_markets.py      # edit; toggle slides view in the app-view menu
+uv run marimo run lp_planning.py                  # the planning deck
 ```
 
 ## Static HTML backup
 
 ```bash
 uv run marimo export html lp_electricity_markets.py -o lp_electricity_markets.html
+uv run marimo export html lp_planning.py -o lp_planning.html
 ```
 
 This produces one self-contained file (~8 MB) that opens in any browser with no Python.
