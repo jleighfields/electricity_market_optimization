@@ -2727,8 +2727,10 @@ def _(mo):
     Take $S = 20$ scenarios and $\alpha = 0.9$, so the tail is the worst $(1-\alpha)S = 2$. The three highest
     costs are **25, 30 and 40** (\$M); CVaR = average of the worst two = **35**.
 
-    | Guess $z$ | Scenarios above $z$ | Total excess $\sum_s \max(C_s - z, 0)$ | $\div\,(1-\alpha)S = 2$ | $z$ + that |
-    |:---|:---|:---|:---|:---|
+    For each guess $z$, compute $\;z + \frac{1}{(1-\alpha)S}\sum_s \max(C_s - z,\, 0)\;$ and keep the smallest:
+
+    | Guess $z$ | Costs above $z$ | Excess over $z$ | Excess ÷ 2 | $z$ + excess ÷ 2 |
+    |---:|:---|:---|---:|---:|
     | 20 | 25, 30, 40 | 5 + 10 + 20 = 35 | 17.5 | 37.5 |
     | 25 | 30, 40 | 5 + 15 = 20 | 10 | **35** |
     | 30 | 40 | 10 | 5 | **35** |
@@ -2736,8 +2738,7 @@ def _(mo):
 
     - **$z$ too low:** scenarios outside the tail count as excess, so the sum is too big.
     - **$z$ too high:** $z$ itself overshoots, and the excess no longer makes up the difference.
-    - **$z$ at the tail’s edge** (anywhere from 25 to 30, the VaR): the minimum, **35 = CVaR**. So the VaR is *a* best
-      $z$, though not always the only one.
+    - **$z$ at the tail’s edge** (anywhere from 25 to 30): the minimum, **35 = CVaR**. The VaR (25) is one best $z$.
 
     In the LP, $\eta_s$ holds each $\max(C_s - z, 0)$, so the CVaR row is this same expression, written linearly.
     """
