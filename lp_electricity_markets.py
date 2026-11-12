@@ -135,16 +135,17 @@ def _(mo):
        already know how to write, and the market prices are its **dual variables**.
     3. **The problem statement:** the objective is to **minimize cost** or **risk**;
        **market rules, contracts, plant operating limits and physics** become **constraints**.
-    4. **Build up one step at a time:**
+    4. **Build up one section at a time** (click to jump):
 
-    | Step | Business problem | Optimization |
+    | Section | Business problem | Optimization |
     |:---|:---|:---|
-    | 1 | Who should produce, and at what price? | A one-constraint **LP** (the merit order) |
-    | 2 | A whole day, with ramp limits and batteries | A bigger LP, hours linked together |
-    | 3 | Power travels over lines with limits | **Network flow** LP, one price per location |
-    | 4 | Hold back capacity in case something fails | New constraints, new prices |
-    | 5 | Decide a day ahead which plants turn on | **MILP**, and why it has no duals |
-    | 6 | Hedge a utility against uncertain prices | **Stochastic optimization** (an LP over scenarios) |
+    | 1 · [**Electricity markets 101**](#/3) | What is bought and sold, who’s involved, how the market runs | — |
+    | 2 · [**Economic dispatch**](#/12) | Who produces, at what price? Then a day with ramps and a battery | **LP** (the merit order), then hours linked |
+    | 3 · [**Adding the network**](#/27) | Power travels over lines with limits | **Network flow** LP, one price per location |
+    | 4 · [**Reserves**](#/44) | Hold back capacity in case something fails | New constraints, new prices |
+    | 5 · [**Unit commitment**](#/48) | Decide a day ahead which plants turn on | **MILP**, and why it has no duals |
+    | 6 · [**Portfolio management**](#/58) | Hedge a utility against uncertain prices | **Stochastic optimization** (an LP over scenarios) |
+    | 7 · [**Wrap-up**](#/72) | Additional topics, a summary, glossary and sources | — |
     """
     )
     return
@@ -191,26 +192,6 @@ def _(ASSETS, json, mo, plants):
         )
 
     hook_slide()
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-    ## Outline
-
-    | | Section | What it covers | The optimization idea |
-    |:---|:---|:---|:---|
-    | 1 | [**Electricity markets 101**](#/4) | Why power is different, who’s involved, maps of plants, ISOs and the western grid, how the market runs | — |
-    | 2 | [**Economic dispatch**](#/13) | The merit order, how generators bid and get paid, why everyone gets the same price, and a duck-curve day with ramp limits and a battery | LP; the price **is** the dual |
-    | 3 | [**Adding the network**](#/28) | Locational prices, congestion, loop flow, negative prices, the western grid, real ERCOT prices | Network flow + Kirchhoff’s law |
-    | 4 | [**Reserves**](#/45) | Holding capacity in reserve, getting paid for energy and reserves | A new constraint, a new dual |
-    | 5 | [**Unit commitment**](#/49) | Turning plants on and off a day ahead, and why that breaks pricing | MILP; no duals, uplift |
-    | 6 | [**Portfolio management**](#/59) | An LSE hedging real CAISO prices: risk, contracts, what offers to accept | CVaR as an LP; reduced costs |
-    | 7 | [**Wrap-up**](#/73) | Additional topics, a summary, glossary and sources | — |
-    """
-    )
     return
 
 

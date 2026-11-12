@@ -36,7 +36,7 @@ See `README.md` for what each file is and how to run, export and rebuild everyth
 1. `uv run marimo check <deck>.py` (only the existing markdown-indentation warnings are expected).
 2. `uv run marimo export html <deck>.py -o <deck>.html`; the export must show no failed cells.
 3. Check that every slide fits a 1294×853 viewport (no "Scroll for more") and look at changed slides.
-4. Adding, removing or moving a slide shifts the outline links (`#/N`, 0-based slide index): update and test them.
+4. Adding, removing or moving a slide shifts the section links on the goals slide (`#/N`, 0-based slide index): update and test them.
 5. Commit the `.py` and `.html` together and push.
 
 Don't edit a notebook's `.py` while it's open in a live marimo session; edit through the session instead.
