@@ -102,7 +102,7 @@ rsconnect deploy fastapi --entrypoint app:app \
 - Ship `assets/` (stored solves) and `layouts/` (slides layout). Each visitor gets their own Python session,
   and the gap demo solves its MILP (~30 s) when it opens.
 
-## Data (all stored in `assets/`, so the talk runs offline)
+## Data (all stored in `assets/`, so the talk runs offline; only the map background tiles need internet)
 
 | File | What | Source |
 |---|---|---|

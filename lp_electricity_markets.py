@@ -266,7 +266,7 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(ASSETS, go, json, mo, pd):
+def _(ASSETS, go, json, mo, np, pd):
     plants = pd.read_parquet(ASSETS / "plants.parquet")
 
     def load_state_outlines():
@@ -286,28 +286,41 @@ def _(ASSETS, go, json, mo, pd):
     US = dict(lon_range=(-125, -66.5), lat_range=(24.3, 49.6))
     WEST = dict(lon_range=(-125, -102), lat_range=(31, 49.3))
 
-    def base_map(lon_range, lat_range, height=480):
-        """Pan/zoom map in lon/lat with state outlines; works offline."""
+    def fit_zoom(lon_range, lat_range, width, height):
+        """Web-map zoom that fits the lon/lat box into a width x height px map (512 px tiles)."""
+        def merc(lat):
+            return np.log(np.tan(np.pi / 4 + np.radians(lat) / 2))
+        zoom_lon = np.log2(width * 360 / (512 * (lon_range[1] - lon_range[0])))
+        zoom_lat = np.log2(height * 2 * np.pi / (512 * (merc(lat_range[1]) - merc(lat_range[0]))))
+        return float(min(zoom_lon, zoom_lat))
+
+    def base_map(lon_range, lat_range, height=480, width=1150, legend_rows=1):
+        """Pan/zoom tile map (CARTO light basemap: roads and places appear as you zoom) with state outlines.
+        Needs internet for the tiles; without it the outlines and data still draw on a blank background.
+        `width` is the map's approximate on-slide width in px, used only to pick the starting zoom;
+        `legend_rows` reserves space below the map so the legend doesn't cover it."""
+        legend_px = 24 * legend_rows
         lon, lat = STATE_OUTLINES
         fig = go.Figure(
-            go.Scattergl(x=lon, y=lat, mode="lines", hoverinfo="skip",
-                         line=dict(color="#B8B2A3", width=0.8), showlegend=False)
+            go.Scattermap(lon=lon, lat=lat, mode="lines", hoverinfo="skip",
+                          line=dict(color="#8C8577", width=0.8), showlegend=False)
         )
-        fig.update_xaxes(range=list(lon_range), visible=False)
-        fig.update_yaxes(range=list(lat_range), visible=False,
-                         scaleanchor="x", scaleratio=1.3)  # ~1/cos(40°)
         fig.update_layout(
-            height=height, margin=dict(l=0, r=0, t=0, b=0), dragmode="pan",
-            plot_bgcolor="#F7F5EF", paper_bgcolor="#F7F5EF",
+            height=height, margin=dict(l=0, r=0, t=0, b=legend_px),
+            map=dict(
+                style="carto-positron",
+                center=dict(lon=sum(lon_range) / 2, lat=sum(lat_range) / 2),
+                zoom=fit_zoom(lon_range, lat_range, width, height - legend_px),
+            ),
+            paper_bgcolor="#F7F5EF",
             legend=dict(orientation="h", y=0, yanchor="top", itemsizing="constant"),
         )
         return fig
 
     def plant_trace(df, name, color):
-        return go.Scattergl(
-            x=df.lon, y=df.lat, mode="markers", name=name,
-            marker=dict(size=3 + df.capacity_mw**0.5 / 3, color=color,
-                        opacity=0.75, line=dict(width=0)),
+        return go.Scattermap(
+            lon=df.lon, lat=df.lat, mode="markers", name=name,
+            marker=dict(size=3 + df.capacity_mw**0.5 / 3, color=color, opacity=0.75),
             customdata=df[["plant_name", "capacity_mw", "ba", "fuel"]],
             hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]:,.0f} MW · "
             "%{customdata[3]}<br>BA: %{customdata[2]}<extra></extra>",
@@ -364,7 +377,7 @@ def _(terms, US, base_map, mo, plant_trace, plants, show_map):
         in_iso = plants.ba.isin(list(isos)) | spp_west
         share = plants[in_iso].capacity_mw.sum() / plants.capacity_mw.sum()
 
-        fig = base_map(**US, height=420)
+        fig = base_map(**US, height=405)
         fig.add_trace(plant_trace(plants[~in_iso], "Utility BAs, no ISO", "#B8B2A3"))
         for code, (name, color) in isos.items():
             fig.add_trace(plant_trace(plants[plants.ba == code], name, color))
@@ -412,7 +425,7 @@ def _(terms, WEST, base_map, mo, plant_trace, plants, show_map):
 
     def wecc_map_slide():
         west = plants[plants.ba.isin(WECC_BAS)]
-        fig = base_map(**WEST, height=540)
+        fig = base_map(**WEST, height=540, width=780, legend_rows=3)
         add_ba_plants(fig)
 
         return mo.vstack(
@@ -473,15 +486,15 @@ def _(terms, ASSETS, WEST, base_map, go, json, mo, show_map):
             xs, ys = segments[label]
             if muted and min_kv < 200:
                 continue  # keep only the 200 kV+ grid under other layers
-            fig.add_trace(go.Scattergl(
-                x=xs, y=ys, mode="lines", name=label, hoverinfo="skip",
+            fig.add_trace(go.Scattermap(
+                lon=xs, lat=ys, mode="lines", name=label, hoverinfo="skip",
                 showlegend=not muted,
                 line=dict(color="#6F6F6F" if muted else color, width=width * (0.8 if muted else 1)),
                 opacity=0.7 if muted else 1))
         return n_lines
 
     def transmission_map_slide(model):
-        fig = base_map(**WEST, height=555)
+        fig = base_map(**WEST, height=555, width=780)
         n_lines = add_lines(fig, model)
 
         return mo.vstack(
@@ -519,7 +532,7 @@ def _(terms, ASSETS, WEST, base_map, go, json, mo, show_map):
 @app.cell(hide_code=True)
 def _(WEST, add_ba_plants, add_lines, base_map, mo, show_map, western):
     def combined_map_slide():
-        fig = base_map(**WEST, height=555)
+        fig = base_map(**WEST, height=555, width=780, legend_rows=3)
         add_lines(fig, western, muted=True)    # the network (gray, 200 kV and up)
         west = add_ba_plants(fig)              # the plants, colored by balancing authority
 
@@ -1839,12 +1852,12 @@ def _(terms,
         binding_paths = paths[paths.price > 1e-6].sort_values("price", ascending=False)
         path_lines = lines.loc[[l for ls in binding_paths["lines"] for l in ls.split(",")]]
 
-        fig = base_map(**WEST, height=450)
+        fig = base_map(**WEST, height=450, width=780)
         xs, ys = segments(lines[~lines.binding])
-        fig.add_trace(go.Scattergl(x=xs, y=ys, mode="lines", name="Lines",
+        fig.add_trace(go.Scattermap(lon=xs, lat=ys, mode="lines", name="Lines",
                                    line=dict(color="#D5CFC2", width=0.6), hoverinfo="skip"))
-        fig.add_trace(go.Scattergl(
-            x=buses.lon, y=buses.lat, mode="markers", name="Buses (LMP)",
+        fig.add_trace(go.Scattermap(
+            lon=buses.lon, lat=buses.lat, mode="markers", name="Buses (LMP)",
             marker=dict(size=5, color=buses.lmp, colorscale="Viridis",
                         cmin=buses.lmp.quantile(0.02), cmax=buses.lmp.quantile(0.99),
                         colorbar=dict(title="$/MWh", x=1.0)),
@@ -1853,10 +1866,10 @@ def _(terms,
             "<br>LMP $%{customdata[2]:.2f}/MWh<extra></extra>",
         ))
         xs, ys = segments(path_lines)
-        fig.add_trace(go.Scattergl(x=xs, y=ys, mode="lines", name="Binding path (interface)",
+        fig.add_trace(go.Scattermap(lon=xs, lat=ys, mode="lines", name="Binding path (interface)",
                                    line=dict(color="#E07A1F", width=4), hoverinfo="skip"))
         xs, ys = segments(lines[lines.binding])
-        fig.add_trace(go.Scattergl(x=xs, y=ys, mode="lines", name="Binding line limit",
+        fig.add_trace(go.Scattermap(lon=xs, lat=ys, mode="lines", name="Binding line limit",
                                    line=dict(color="#E73F74", width=4), hoverinfo="skip"))
 
         northwest = buses[(buses.lat > 43) & (buses.lon < -116)].lmp.mean()
