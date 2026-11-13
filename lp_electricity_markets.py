@@ -318,13 +318,21 @@ def _(ASSETS, go, json, mo, np, pd):
         return fig
 
     def plant_trace(df, name, color):
-        return go.Scattermap(
-            lon=df.lon, lat=df.lat, mode="markers", name=name,
-            marker=dict(size=3 + df.capacity_mw**0.5 / 3, color=color, opacity=0.75),
+        """Plant markers sized by capacity, as two traces: a dark outline layer under the colored dots
+        (map markers have no stroke), grouped so the legend toggles both."""
+        size = 3 + df.capacity_mw**0.5 / 3
+        outline = go.Scattermap(
+            lon=df.lon, lat=df.lat, mode="markers", legendgroup=name, showlegend=False,
+            marker=dict(size=size + 2, color="#2B2B2B", opacity=0.55), hoverinfo="skip",
+        )
+        dots = go.Scattermap(
+            lon=df.lon, lat=df.lat, mode="markers", name=name, legendgroup=name,
+            marker=dict(size=size, color=color, opacity=0.95),
             customdata=df[["plant_name", "capacity_mw", "ba", "fuel"]],
             hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]:,.0f} MW · "
             "%{customdata[3]}<br>BA: %{customdata[2]}<extra></extra>",
         )
+        return [outline, dots]
 
     def show_map(fig):
         return mo.ui.plotly(fig, config={"scrollZoom": True, "displaylogo": False})
@@ -343,7 +351,7 @@ def _(terms, US, base_map, mo, plant_trace, plants, show_map):
         fig = base_map(**US)
         for fuel, color in fuels.items():
             df = plants[plants.fuel == fuel]
-            fig.add_trace(plant_trace(df, f"{fuel} {df.capacity_mw.sum() / 1e3:,.0f} GW", color))
+            fig.add_traces(plant_trace(df, f"{fuel} {df.capacity_mw.sum() / 1e3:,.0f} GW", color))
 
         return mo.vstack(
             [
@@ -378,10 +386,10 @@ def _(terms, US, base_map, mo, plant_trace, plants, show_map):
         share = plants[in_iso].capacity_mw.sum() / plants.capacity_mw.sum()
 
         fig = base_map(**US, height=405)
-        fig.add_trace(plant_trace(plants[~in_iso], "Utility BAs, no ISO", "#B8B2A3"))
+        fig.add_traces(plant_trace(plants[~in_iso], "Utility BAs, no ISO", "#B8B2A3"))
         for code, (name, color) in isos.items():
-            fig.add_trace(plant_trace(plants[plants.ba == code], name, color))
-        fig.add_trace(plant_trace(plants[spp_west], "SPP West (since Apr 2026)", "#C2DFA6"))
+            fig.add_traces(plant_trace(plants[plants.ba == code], name, color))
+        fig.add_traces(plant_trace(plants[spp_west], "SPP West (since Apr 2026)", "#C2DFA6"))
 
         return mo.vstack(
             [
@@ -418,9 +426,9 @@ def _(terms, WEST, base_map, mo, plant_trace, plants, show_map):
             "#E73F74", "#3969AC", "#E68310", "#11A579", "#7F3C8D", "#F2B701",
             "#80BA5A", "#008695", "#CF1C90", "#4B4B8F", "#A5AA99", "#8B5A2B",
         ]
-        fig.add_trace(plant_trace(west[~west.ba.isin(top)], "Other WECC BAs", "#B8B2A3"))
+        fig.add_traces(plant_trace(west[~west.ba.isin(top)], "Other WECC BAs", "#B8B2A3"))
         for ba, color in zip(top, colors):
-            fig.add_trace(plant_trace(west[west.ba == ba], ba, color))
+            fig.add_traces(plant_trace(west[west.ba == ba], ba, color))
         return west
 
     def wecc_map_slide():
