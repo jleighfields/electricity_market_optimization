@@ -710,7 +710,7 @@ def _(demand_slider, go, mo, pd, show_chart):
         fig.add_annotation(x=10, y=price, text=f"<b>Price = ${price}/MWh</b>", showarrow=False,
                            xanchor="left", yanchor="bottom", font=dict(color="#A84F0A"))
         fig.update_xaxes(title="Cumulative capacity (MW)", range=[0, 1000])
-        fig.update_yaxes(title="Offer price ($/MWh)", range=[0, 95])
+        fig.update_yaxes(title="Marginal cost ($/MWh)", range=[0, 95])
 
         return mo.vstack(
             [
