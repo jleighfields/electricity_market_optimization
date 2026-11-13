@@ -12,7 +12,7 @@ Two slide decks and a standalone demo, all [marimo](https://marimo.io) notebooks
 | `optimality_gap_demo.py` | Standalone notebook, not a deck: watch a unit commitment MILP's optimality gap close |
 | `*.html` | Static exports of the notebooks above (see below) |
 | `layouts/` | marimo slides layout for each deck |
-| `assets/` | All data, so the talks run offline (table below); `assets/raw/` is git-ignored |
+| `assets/` | All data, so the talks run offline (table below), plus the two small widget scripts (`theme_toggle.js`, `map_fade.js`); `assets/raw/` is git-ignored |
 | `scripts/build_data.py` | Downloads and rebuilds the data in `assets/` |
 | `scripts/capture_ercot_map.py` | Captures the ERCOT LMP map used on the slides |
 | `scripts/build_gap_trace.py` | Re-runs `optimality_gap_demo.py` and saves its trace for the main deck |

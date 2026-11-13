@@ -35,58 +35,13 @@ def _():
 
     class _ThemeToggle(anywidget.AnyWidget):
         """A button on the title slide that flips the deck between light and dark mode."""
-        _esm = """
-        function render({ el }) {
-          const btn = document.createElement("button");
-          btn.textContent = "◐ Light / dark";
-          btn.style.cssText = "font-size: 14px; padding: 4px 12px; border-radius: 6px; " +
-            "border: 1px solid #A9B4C8; background: transparent; color: inherit; cursor: pointer";
-          btn.onclick = () => {
-            const dark = !document.body.classList.contains("dark");
-            for (const node of [document.documentElement, document.body]) {
-              node.classList.toggle("dark", dark); node.classList.toggle("dark-theme", dark);
-              node.classList.toggle("light", !dark); node.classList.toggle("light-theme", !dark);
-              node.style.colorScheme = dark ? "dark" : "light";
-            }
-          };
-          el.appendChild(btn);
-        }
-        export default { render };
-        """
+        _esm = ASSETS / "theme_toggle.js"
 
     class _MapFade(anywidget.AnyWidget):
         """Invisible helper (rendered once, on the title slide): on every Plotly tile map, traces tagged
         meta="fade" are faint when zoomed out and solid when zoomed in. Plotly can't do this itself,
         so it gives the MapLibre circle layers a zoom expression for their opacity."""
-        _esm = """
-        const FAINT = 0.4, ZOOM_OUT = 3.5, ZOOM_IN = 6.5;  // fraction of full opacity at ZOOM_OUT
-        function fade(gd) {
-          const map = gd._fullLayout?.map?._subplot?.map;
-          if (!map || !map.getStyle()) return;
-          const uids = new Set((gd._fullData || []).filter(t => t.meta === "fade").map(t => t.uid));
-          for (const layer of map.getStyle().layers) {
-            const uid = layer.id.match(/^plotly-trace-layer-(.+)-circle$/)?.[1];
-            if (!uid || !uids.has(uid)) continue;
-            const full = map.getPaintProperty(layer.id, "circle-opacity");
-            if (typeof full !== "number") continue;  // already an expression
-            map.setPaintProperty(layer.id, "circle-opacity",
-              ["interpolate", ["linear"], ["zoom"], ZOOM_OUT, full * FAINT, ZOOM_IN, full]);
-          }
-        }
-        function scan() {
-          // marimo draws each chart inside the shadow DOM of a <marimo-plotly> element
-          for (const host of document.querySelectorAll("marimo-plotly")) {
-            for (const gd of host.shadowRoot?.querySelectorAll(".js-plotly-plot") ?? []) {
-              fade(gd);  // cheap when already applied; also catches Plotly redraws (legend clicks)
-            }
-          }
-        }
-        function render() {
-          if (window.__mapFade) return;
-          window.__mapFade = setInterval(scan, 500);
-        }
-        export default { render };
-        """
+        _esm = ASSETS / "map_fade.js"
 
     def terms(text):
         """A small line that defines the jargon and symbols used on a slide."""
