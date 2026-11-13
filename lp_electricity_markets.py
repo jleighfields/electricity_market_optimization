@@ -54,6 +54,40 @@ def _():
         export default { render };
         """
 
+    class _MapFade(anywidget.AnyWidget):
+        """Invisible helper (rendered once, on the title slide): on every Plotly tile map, traces tagged
+        meta="fade" are faint when zoomed out and solid when zoomed in. Plotly can't do this itself,
+        so it gives the MapLibre circle layers a zoom expression for their opacity."""
+        _esm = """
+        const FAINT = 0.4, ZOOM_OUT = 3.5, ZOOM_IN = 6.5;  // fraction of full opacity at ZOOM_OUT
+        function fade(gd) {
+          const map = gd._fullLayout?.map?._subplot?.map;
+          if (!map || !map.getStyle()) return;
+          const uids = new Set((gd._fullData || []).filter(t => t.meta === "fade").map(t => t.uid));
+          for (const layer of map.getStyle().layers) {
+            const uid = layer.id.match(/^plotly-trace-layer-(.+)-circle$/)?.[1];
+            if (!uid || !uids.has(uid)) continue;
+            const full = map.getPaintProperty(layer.id, "circle-opacity");
+            if (typeof full !== "number") continue;  // already an expression
+            map.setPaintProperty(layer.id, "circle-opacity",
+              ["interpolate", ["linear"], ["zoom"], ZOOM_OUT, full * FAINT, ZOOM_IN, full]);
+          }
+        }
+        function scan() {
+          // marimo draws each chart inside the shadow DOM of a <marimo-plotly> element
+          for (const host of document.querySelectorAll("marimo-plotly")) {
+            for (const gd of host.shadowRoot?.querySelectorAll(".js-plotly-plot") ?? []) {
+              fade(gd);  // cheap when already applied; also catches Plotly redraws (legend clicks)
+            }
+          }
+        }
+        function render() {
+          if (window.__mapFade) return;
+          window.__mapFade = setInterval(scan, 500);
+        }
+        export default { render };
+        """
+
     def terms(text):
         """A small line that defines the jargon and symbols used on a slide."""
         return mo.md(f"<small>**Terms** — {text}</small>")
@@ -108,7 +142,7 @@ def _():
     Code and data: [github.com/jleighfields/electricity_market_optimization](https://github.com/jleighfields/electricity_market_optimization)
     """
     )
-    mo.vstack([_title, mo.ui.anywidget(_ThemeToggle())], align="center")
+    mo.vstack([_title, mo.ui.anywidget(_ThemeToggle()), mo.ui.anywidget(_MapFade())], align="center")
     return (
         ASSETS,
         QUIET,
@@ -306,7 +340,7 @@ def _(ASSETS, go, json, mo, np, pd):
                           line=dict(color="#8C8577", width=0.8), showlegend=False)
         )
         fig.update_layout(
-            height=height, margin=dict(l=0, r=0, t=0, b=legend_px),
+            height=height, margin=dict(l=0, r=0, t=0, b=legend_px), dragmode="pan",
             map=dict(
                 style="carto-positron",
                 center=dict(lon=sum(lon_range) / 2, lat=sum(lat_range) / 2),
@@ -319,14 +353,15 @@ def _(ASSETS, go, json, mo, np, pd):
 
     def plant_trace(df, name, color):
         """Plant markers sized by capacity, as two traces: a dark outline layer under the colored dots
-        (map markers have no stroke), grouped so the legend toggles both."""
+        (map markers have no stroke), grouped so the legend toggles both. meta="fade": faint when
+        zoomed out, solid when zoomed in (see _MapFade)."""
         size = 3 + df.capacity_mw**0.5 / 3
         outline = go.Scattermap(
-            lon=df.lon, lat=df.lat, mode="markers", legendgroup=name, showlegend=False,
+            lon=df.lon, lat=df.lat, mode="markers", legendgroup=name, showlegend=False, meta="fade",
             marker=dict(size=size + 2, color="#2B2B2B", opacity=0.55), hoverinfo="skip",
         )
         dots = go.Scattermap(
-            lon=df.lon, lat=df.lat, mode="markers", name=name, legendgroup=name,
+            lon=df.lon, lat=df.lat, mode="markers", name=name, legendgroup=name, meta="fade",
             marker=dict(size=size, color=color, opacity=0.95),
             customdata=df[["plant_name", "capacity_mw", "ba", "fuel"]],
             hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]:,.0f} MW · "
