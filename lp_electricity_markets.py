@@ -1200,7 +1200,7 @@ def _(mo):
 
     - **One balance constraint per bus**, so **one price per bus**: the *locational marginal price* (LMP).
     - $A$ is the **incidence matrix** ($A_{n\ell} = +1$ if line $\ell$ starts at bus $n$, $-1$ if it ends there), so
-      $\sum_\ell A_{n\ell} f_\ell$ is the **net flow out of bus $n$**. One angle is the reference, $\theta_{\text{ref}} = 0$.
+      $\sum_\ell A_{n\ell} f_\ell$ is the **net flow out of bus $n$**. One angle is the reference, $\theta_{\text{ref}} = 0$ (how angles are found: Appendix H).
     - **Why angles?** Each bus’s voltage is a 60 Hz wave; $\theta_n$ is how far ahead it runs. Power flows from the leading bus
       to the lagging one: more for a bigger lead, less for a higher reactance $x_\ell$ (like current = voltage difference / resistance).
       One angle per bus, shared by all its lines, fixes every flow, so power can’t be routed. (Exact AC flow is nonconvex;
@@ -3651,6 +3651,65 @@ def _(mo):
     | **ISO-NE** | [ISO Express real-time maps](https://www.iso-ne.com/isoexpress/) |
 
     <small>Look for congestion: a sharp color change across a short distance is a binding line, the μ of our two-bus example.</small>
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## Appendix H · How the phase angles are determined (1/2)
+
+    **No one chooses the angles: the injections and the reactances set them.** Each bus must balance, so its net
+    injection $P_n$ (generation − load) equals the flow out over its lines:
+
+    $$P_n = \sum_{m} \frac{\theta_n - \theta_m}{x_{nm}} \quad\Longleftrightarrow\quad B\,\theta = P$$
+
+    - $B$ is the network’s **susceptance matrix**: a graph Laplacian weighted by $1/x$.
+    - Every row of $B$ sums to zero, so $B$ is **singular**: adding the same constant to every angle changes no flow.
+    - Fix one **reference bus** at $\theta_{\text{ref}} = 0$, drop its row and column, and solve the rest: $\theta = B^{-1} P$.
+    - **In the DC-OPF LP**, the $\theta_n$ are free variables, but the optimizer really chooses only the generation;
+      once $P$ is set, the angles (and so every flow) have exactly one value.
+    - **KVL comes for free:** around any loop, the angle differences telescope to zero,
+      $(\theta_1-\theta_2)+(\theta_2-\theta_3)+(\theta_3-\theta_1)=0$, so $\sum \pm\, x_\ell f_\ell = 0$.
+    - **Or eliminate $\theta$:** substituting $\theta = B^{-1}P$ gives flow = **PTDF** × injections, the
+      “2/3 direct, 1/3 around” split.
+
+    <small>**Terms** — $P_n$: net injection at bus $n$ (MW) &ensp;|&ensp; $\theta_n$: voltage angle &ensp;|&ensp; $x_{nm}$: reactance of the line between $n$ and $m$ &ensp;|&ensp; **susceptance**: $1/x$ &ensp;|&ensp; **PTDF**: power transfer distribution factor, the share of an injection that flows on each line</small>
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ## Appendix H · How the phase angles are determined (2/2)
+
+    **The three-bus example:** $x = 1$ on every line, Gen 1 injects 150 MW at bus 1, Gen 2 injects 150 MW at bus 2,
+    and bus 3 (the 300 MW load) is the reference, $\theta_3 = 0$.
+
+    $$\begin{aligned}
+    \text{Bus 1:}\quad (\theta_1 - \theta_2) + (\theta_1 - 0) &= 150 \\
+    \text{Bus 2:}\quad (\theta_2 - \theta_1) + (\theta_2 - 0) &= 150
+    \end{aligned}
+    \qquad\Longrightarrow\qquad \theta_1 = \theta_2 = 150,\ \ \theta_3 = 0$$
+
+    | Line | Angle difference | Flow |
+    |:---|:---:|:---:|
+    | 1–2 | $150 - 150 = 0$ | **0 MW** |
+    | 1–3 | $150 - 0$ | **150 MW** (at its limit) |
+    | 2–3 | $150 - 0$ | **150 MW** |
+
+    Same flows as the superposition drawing: line 1–2 is idle because buses 1 and 2 share an angle.
+
+    **In real operations**, operators solve the nonlinear **AC power flow** (Newton–Raphson) or **estimate** the
+    angles from measurements (PMUs measure $\theta$ directly). Either way, injections set the angles; angles set the flows.
+
+    <small>**Terms** — **reference bus**: the bus whose angle is fixed at 0 &ensp;|&ensp; **Newton–Raphson**: iterative method for nonlinear equations &ensp;|&ensp; **state estimation**: fitting the grid’s angles and voltages to noisy measurements &ensp;|&ensp; **PMU**: phasor measurement unit</small>
     """
     )
     return
