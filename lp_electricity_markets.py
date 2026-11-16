@@ -2063,9 +2063,9 @@ def _(mo):
 
     $$
     \begin{aligned}
-    \min\quad & \sum_i \big(c_i p_i + b_i r_i\big) && & \color{#6A7179}\text{energy cost + reserve offers} \\
-    \text{s.t.}\quad & \sum_i p_i = D && (\lambda) & \color{#6A7179}\text{supply = demand} \\
-    & \sum_i r_i \ge R^{\text{req}} && (\sigma) & \color{#6A7179}\text{hold at least }R^{\text{req}}\text{ MW in reserve} \\
+    \min\quad & \textstyle\sum_i \big(c_i p_i + b_i r_i\big) && & \color{#6A7179}\text{energy cost + reserve offers} \\
+    \text{s.t.}\quad & \textstyle\sum_i p_i = D && (\lambda) & \color{#6A7179}\text{supply = demand (one bus, for brevity)} \\
+    & \textstyle\sum_i r_i \ge R^{\text{req}} && (\sigma) & \color{#6A7179}\text{hold at least }R^{\text{req}}\text{ MW in reserve} \\
     & p_i + r_i \le \overline P_i && (\overline\mu_i) & \color{#6A7179}\text{energy + reserve fit in each unit} \\
     & p_i \ge \underline P_i,\quad r_i \ge 0 && (\underline\mu_i) & \color{#6A7179}\text{each online dispatchable unit}
     \end{aligned}
@@ -2074,6 +2074,7 @@ def _(mo):
     - $R^{\text{req}}$ grows with the **largest single outage** and with **forecast error** in net load. Here only
       dispatchable units hold reserve; wind and solar enter through $0 \le p_j \le \overline P^{\,\text{avail}}_j$.
     - **Reserve price = $\sigma$**, the dual of the requirement.
+    - **Network omitted for brevity:** in the market, $\sum_i p_i = D$ becomes the DC-OPF rows (one balance per bus, Kirchhoff’s law, line limits), and $\lambda$ becomes the LMP $\lambda_n$.
     - **Coupling:** a MW held in reserve can’t produce energy, so when reserves are scarce the energy price rises too.
 
     <small>**Terms** — $i$: all units, as before; $j$: the wind and solar units, which serve load but hold no reserve here ($r_j = 0$) &ensp;|&ensp; $p_i, c_i$: energy output and offer, $\lambda$: energy price, as before &ensp;|&ensp; $\sigma$: reserve price (\$/MW per hour) &ensp;|&ensp; $r_i$: MW of reserve from unit $i$ &ensp;|&ensp; $b_i$: its reserve offer (\$/MW per hour) &ensp;|&ensp; $R^{\text{req}}$: required reserve (MW) &ensp;|&ensp; **net load**: load minus wind and solar output &ensp;|&ensp; $\overline\mu_i$ here prices the shared limit $p_i + r_i \le \overline P_i$; $\underline\mu_i$: dual of the minimum</small>
