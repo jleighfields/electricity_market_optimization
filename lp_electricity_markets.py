@@ -1667,7 +1667,7 @@ def _(
             fig.add_trace(go.Scatter(x=[x], y=[y], mode="markers", hoverinfo="skip", showlegend=False,
                                      marker=dict(size=28, color="#E73F74" if lmp[bus] < 0 else "#14213D")))
         fig.update_xaxes(range=[-1.0, 3.0], visible=False)
-        fig.update_yaxes(range=[-1.3, 2.5], visible=False)
+        fig.update_yaxes(range=[-1.3, 2.8], visible=False)  # room for a 4-line label at Bus1
 
         saved = ", **\\$60 less**" if add_load else ""
         return mo.vstack(
