@@ -1658,6 +1658,8 @@ def _(
         for k, (bus, (x, y)) in enumerate(pos.items(), start=1):
             gen = f"Gen{k}"
             label = f"{bus}: Gen{k} (${n.generators.marginal_cost[gen]:.0f})<br>runs {abs(output[gen]):.0f} of {n.generators.p_nom[gen]:.0f} MW"
+            if abs(output[gen]) < 1e-6:  # idle unit: show why, its reduced cost c_i − λ_n > 0
+                label += f" (reduced cost +{dollars(n.generators.marginal_cost[gen] - lmp[bus])})"
             if bus in loads:
                 label += f"<br>load {loads[bus]:.0f} MW"
             label += f"<br>LMP {dollars(lmp[bus])}"
