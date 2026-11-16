@@ -988,7 +988,7 @@ def _(mo):
     \text{s.t.}\quad & \textstyle\sum_i p_{i,t} + p^{\text{dis}}_t - p^{\text{ch}}_t = D_t && (\lambda_t) & \color{#6A7179}\text{supply = demand, every hour} \\
     & {-R_i} \le p_{i,t} - p_{i,t-1} \le R_i && & \color{#6A7179}\text{ramp limit: MW change per hour} \\
     & e_t = e_{t-1} + \eta\, p^{\text{ch}}_t - p^{\text{dis}}_t / \eta, \quad 0 \le e_t \le E && & \color{#6A7179}\text{battery state of charge} \\
-    & 0 \le p^{\text{ch}}_t,\, p^{\text{dis}}_t \le P^{B}, \quad e_{24} = e_0 && & \color{#6A7179}\text{power limit; end the day as it began}
+    & 0 \le p^{\text{ch}}_t,\, p^{\text{dis}}_t \le P^{B}, \quad e_{24} = e_0 && & \color{#6A7179}\text{power limit; optional: end as it began}
     \end{aligned}
     $$
 
@@ -998,7 +998,7 @@ def _(mo):
     | Coal | 200 MW | 80 MW | 30 MW/h | | Energy $E$ | 1,000 MWh (4 hours) |
     | Gas CC | 200 MW | 40 MW | 60 MW/h | | Efficiency $\eta$ | 92% each way (85% round trip) |
 
-    Plus the min/max and wind/solar limits from before; the peaker (0–150 MW) can ramp fully in an hour. Before, the day was **24 separate LPs**; ramp and storage rows **couple the hours** into one LP.
+    Ramp and storage rows **couple the 24 hourly LPs** into one (plus the earlier min/max limits; the peaker ramps fully in an hour). $e_{24} = e_0$ is an optional **end-of-horizon convention**: without it the LP drains the battery, as leftover energy is worth nothing.
 
     <small>**Terms** — **ramp rate**: how fast a unit can change output &ensp;|&ensp; $p^{\text{ch}}_t, p^{\text{dis}}_t$: battery charging, discharging (MW) &ensp;|&ensp; $e_t$: energy stored (MWh) &ensp;|&ensp; $E$, $P^B$: battery energy and power limits &ensp;|&ensp; **round trip**: share of energy stored that comes back out ($0.92^2$) &ensp;|&ensp; mins assume the units are already on (unit commitment, section 5)</small>
     """)
@@ -1045,7 +1045,7 @@ def _(
         return n                             # battery: n.storage_units_t.p (+ discharge, − charge)
 
     mo.vstack([mo.md("## Code: the linked day, with ramp limits and a battery"), mo.show_code(),
-               terms(r"`p_min_pu`, `ramp_limit_up/down`: $\underline P_i$ and $R_i$ as shares of `p_nom` &ensp;|&ensp; **StorageUnit**: PyPSA’s battery, with $p^{\text{ch}}_t, p^{\text{dis}}_t, e_t$ &ensp;|&ensp; `max_hours`: $E / P^B$ &ensp;|&ensp; `cyclic_state_of_charge`: $e_{24} = e_0$")])
+               terms(r"`p_min_pu`, `ramp_limit_up/down`: $\underline P_i$ and $R_i$ as shares of `p_nom` &ensp;|&ensp; **StorageUnit**: PyPSA’s battery, with $p^{\text{ch}}_t, p^{\text{dis}}_t, e_t$ &ensp;|&ensp; `max_hours`: $E / P^B$ &ensp;|&ensp; `cyclic_state_of_charge`: the optional $e_{24} = e_0$ row")])
     return (day_dispatch_flex,)
 
 
