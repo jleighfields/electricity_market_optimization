@@ -2064,7 +2064,7 @@ def _(mo):
     $$
     \begin{aligned}
     \min\quad & \textstyle\sum_i \big(c_i p_i + b_i r_i\big) && & \color{#6A7179}\text{energy cost + reserve offers} \\
-    \text{s.t.}\quad & \textstyle\sum_i p_i = D && (\lambda) & \color{#6A7179}\text{supply = demand (one bus, for brevity)} \\
+    \text{s.t.}\quad & \textstyle\sum_i p_i = D && (\lambda) & \color{#6A7179}\text{supply = demand (KVL omitted for brevity)} \\
     & \textstyle\sum_i r_i \ge R^{\text{req}} && (\sigma) & \color{#6A7179}\text{hold at least }R^{\text{req}}\text{ MW in reserve} \\
     & p_i + r_i \le \overline P_i && (\overline\mu_i) & \color{#6A7179}\text{energy + reserve fit in each unit} \\
     & p_i \ge \underline P_i,\quad r_i \ge 0 && (\underline\mu_i) & \color{#6A7179}\text{each online dispatchable unit}
@@ -2074,7 +2074,7 @@ def _(mo):
     - $R^{\text{req}}$ grows with the **largest single outage** and with **forecast error** in net load. Here only
       dispatchable units hold reserve; wind and solar enter through $0 \le p_j \le \overline P^{\,\text{avail}}_j$.
     - **Reserve price = $\sigma$**, the dual of the requirement.
-    - **Network omitted for brevity:** in the market, $\sum_i p_i = D$ becomes the DC-OPF rows (one balance per bus, Kirchhoff’s law, line limits), and $\lambda$ becomes the LMP $\lambda_n$.
+    - **KVL omitted for brevity:** in the market, $\sum_i p_i = D$ becomes the DC-OPF rows (one balance per bus, Kirchhoff’s voltage law (KVL), line limits), and $\lambda$ becomes the LMP $\lambda_n$.
     - **Coupling:** a MW held in reserve can’t produce energy, so when reserves are scarce the energy price rises too.
 
     <small>**Terms** — $i$: all units, as before; $j$: the wind and solar units, which serve load but hold no reserve here ($r_j = 0$) &ensp;|&ensp; $p_i, c_i$: energy output and offer, $\lambda$: energy price, as before &ensp;|&ensp; $\sigma$: reserve price (\$/MW per hour) &ensp;|&ensp; $r_i$: MW of reserve from unit $i$ &ensp;|&ensp; $b_i$: its reserve offer (\$/MW per hour) &ensp;|&ensp; $R^{\text{req}}$: required reserve (MW) &ensp;|&ensp; **net load**: load minus wind and solar output &ensp;|&ensp; $\overline\mu_i$ here prices the shared limit $p_i + r_i \le \overline P_i$; $\underline\mu_i$: dual of the minimum</small>
@@ -2215,7 +2215,7 @@ def _(mo):
     $$
     \begin{aligned}
     \min\quad & \sum_t \sum_i \big(c_i\, p_{it} + c^{\text{SU}}_i\, v_{it}\big) && \color{#6A7179}\text{energy + startup costs, all hours} \\
-    \text{s.t.}\quad & \textstyle\sum_i p_{it} = D_t && \color{#6A7179}\text{supply = demand every hour} \\
+    \text{s.t.}\quad & \textstyle\sum_i p_{it} = D_t && \color{#6A7179}\text{supply = demand every hour (KVL omitted for brevity)} \\
     & \underline P_i\, u_{it} \le p_{it} \le \overline P_i\, u_{it} && \color{#6A7179}\text{on: output in range; off: exactly 0} \\
     & 0 \le p_{jt} \le \overline P^{\,\text{avail}}_{jt} && \color{#6A7179}\text{wind, solar: forecast, curtail only} \\
     & v_{it} \ge u_{it} - u_{i,t-1} && \color{#6A7179}\text{off → on counts as a start} \\
@@ -2227,7 +2227,7 @@ def _(mo):
     - $u_{it} = 1$ if unit $i$ is **on** in hour $t$ &ensp;|&ensp; $v_{it} = 1$ if it **starts up** &ensp;|&ensp; $c^{\text{SU}}_i$ = startup cost
     - Multi-period (24–36 hours), coupled through time by startups, min up/down times and ramp limits.
 
-    <small>**Terms** — $i$: all units, $j$: wind and solar &ensp;|&ensp; $\overline P^{\,\text{avail}}_{jt}$: forecast wind/solar output &ensp;|&ensp; **curtail**: produce less than that, e.g., when prices go negative or a line is at capacity &ensp;|&ensp; $t$: hour &ensp;|&ensp; $p_{it}$: output (MW) &ensp;|&ensp; $c_i$: offer (\$/MWh) &ensp;|&ensp; $D_t$: demand in hour $t$ &ensp;|&ensp; $UT_i$: unit $i$’s minimum up time (hours) &ensp;|&ensp; $\tau$: the recent hours &ensp;|&ensp; **ramp limit**: most MW a unit can change per hour &ensp;|&ensp; no-load cost and minimum down time omitted for brevity</small>
+    <small>**Terms** — $i$: all units, $j$: wind and solar &ensp;|&ensp; $\overline P^{\,\text{avail}}_{jt}$: forecast wind/solar output &ensp;|&ensp; **curtail**: produce less than that, e.g., when prices go negative or a line is at capacity &ensp;|&ensp; $t$: hour &ensp;|&ensp; $p_{it}$: output (MW) &ensp;|&ensp; $c_i$: offer (\$/MWh) &ensp;|&ensp; $D_t$: demand in hour $t$ &ensp;|&ensp; $UT_i$: unit $i$’s minimum up time (hours) &ensp;|&ensp; $\tau$: the recent hours &ensp;|&ensp; **ramp limit**: most MW a unit can change per hour &ensp;|&ensp; no-load cost, minimum down time and the network rows (bus balance, KVL, line limits) omitted for brevity</small>
     """)
     return
 
