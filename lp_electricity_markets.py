@@ -1200,7 +1200,7 @@ def _(mo):
 
     $$
     \begin{aligned}
-    \min\quad & \sum_i c_i\, p_i && & \color{#6A7179}\text{total generation cost} \\
+    \min\quad & \textstyle\sum_i c_i\, p_i && & \color{#6A7179}\text{total generation cost} \\
     \text{s.t.}\quad & \textstyle\sum_{i \in G(n)} p_i - D_n = \sum_{\ell} A_{n\ell}\, f_\ell && (\lambda_n) & \color{#6A7179}\text{each bus: generation − load = net flow out} \\
     & f_\ell = \tfrac{1}{x_\ell}\big(\theta_{a(\ell)} - \theta_{b(\ell)}\big) && & \color{#6A7179}\text{physics: flow = angle difference / reactance} \\
     & -F_\ell \le f_\ell \le F_\ell && (\mu_\ell) & \color{#6A7179}\text{each line’s thermal limit} \\
@@ -1212,10 +1212,10 @@ def _(mo):
     - **One balance constraint per bus**, so **one price per bus**: the *locational marginal price* (LMP).
     - $A$ is the **incidence matrix** ($A_{n\ell} = +1$ if line $\ell$ starts at bus $n$, $-1$ if it ends there), so
       $\sum_\ell A_{n\ell} f_\ell$ is the **net flow out of bus $n$**. One angle is the reference, $\theta_{\text{ref}} = 0$ (how angles are found: Appendix H).
+    - **Summing all bus rows:** $\mathbf 1^\top A = 0$, so the flows cancel and $\sum_i p_i = \sum_n D_n$; network-wide supply = demand is implied.
     - **Why angles?** Each bus’s voltage is a 60 Hz wave; $\theta_n$ is how far ahead it runs. Power flows from the leading bus
       to the lagging one: more for a bigger lead, less for a higher reactance $x_\ell$ (like current = voltage difference / resistance).
-      One angle per bus, shared by all its lines, fixes every flow, so power can’t be routed. (Exact AC flow is nonconvex;
-      this “DC” linearization keeps it an LP.)
+      One angle per bus, shared by all its lines, fixes every flow: power can’t be routed. (AC flow is nonconvex; this “DC” version is an LP.)
 
     <small>**Terms** — $n$: bus &ensp;|&ensp; $\lambda_n$: LMP at bus $n$ &ensp;|&ensp; $G(n)$: generators at bus $n$ &ensp;|&ensp; $D_n$: load at bus $n$ &ensp;|&ensp; $f_\ell$: MW on line $\ell$, from bus $a(\ell)$ to $b(\ell)$ &ensp;|&ensp; $\theta_n$: voltage angle at bus $n$ &ensp;|&ensp; $F_\ell$: line limit &ensp;|&ensp; $\mu_\ell$: value of 1 MW more line capacity &ensp;|&ensp; $x_\ell$: reactance, the line’s resistance to power flow</small>
     """)
